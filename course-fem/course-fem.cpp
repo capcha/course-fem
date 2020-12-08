@@ -5,7 +5,9 @@
 
 using namespace std;
 
-struct Matrix {
+// Матрица в строчном формате для ЛОС
+struct CRSMatrix {
+
 	vector<int> ig, jg;
 	vector<double> ggl, ggu, di;
 	vector<double> l, u, d;
@@ -16,6 +18,16 @@ struct Matrix {
 
 	int n, maxiter;
 	double epsilon;
+
+};
+
+// Структура для хранения локальных матриц в плотном формате
+struct DenseMatrix {
+
+	vector<vector<double>> G;
+	vector<vector<double>> M;
+	vector<vector<double>> A;	
+
 };
 
 struct Grid {
@@ -29,23 +41,22 @@ struct Grid {
 
 };
 
-
 struct Node {
 
-	int nodeNumber;
 	int x, y;
 
 };
 
 struct FinitElement {
 
-	int vertex1, vertex2, vertex3, areaNumber;
+	vector<Node> nodes;
+	int areaNumber;
 
 };
 
 struct BoundCond1 {
 
-	int vertex, formulaNumber;
+	int formulaNumber;
 
 };
 
@@ -61,6 +72,7 @@ struct BoundCond3 {
 
 };
 
+// Ввод данных
 void input(Grid& grid) {
 	ifstream fInNodes("nodes.txt");
 	ifstream fInFinitElems("finit_elems.txt");
@@ -68,7 +80,7 @@ void input(Grid& grid) {
 	ifstream fInBoundConds2("boudary_conds2.txt");
 	ifstream fInBoundConds3("boudary_conds3.txt");
 
-	int count;
+	int count, temp;
 
 	fInNodes >> count;
 	
@@ -77,7 +89,6 @@ void input(Grid& grid) {
 	for (int i = 0; i < count; i++) {
 		fInNodes >> grid.nodes[i].x;
 		fInNodes >> grid.nodes[i].y;
-		grid.nodes[i].nodeNumber = i + 1;
 	}
 
 	fInNodes.close();
@@ -87,10 +98,21 @@ void input(Grid& grid) {
 	grid.finitElements.resize(count);
 
 	for (int i = 0; i < count; i++) {
-		fInFinitElems >> grid.finitElements[i].vertex1;
-		fInFinitElems >> grid.finitElements[i].vertex2;
-		fInFinitElems >> grid.finitElements[i].vertex3;
-		fInFinitElems >> grid.finitElements[i].areaNumber;
+		grid.finitElements[i].nodes.resize(3);
+
+		fInFinitElems >> temp;
+		
+		grid.finitElements[i].nodes[0] = grid.nodes[temp];
+		
+		fInFinitElems >> temp;
+
+		grid.finitElements[i].nodes[1] = grid.nodes[temp];
+
+		fInFinitElems >> temp;
+
+		grid.finitElements[i].nodes[2] = grid.nodes[temp];
+
+		grid.finitElements[i].areaNumber = i;
 	}
 
 	fInFinitElems.close();
@@ -100,7 +122,6 @@ void input(Grid& grid) {
 	grid.boundConds1.resize(count);
 
 	for (int i = 0; i < count; i++) {
-		fInBoundConds1 >> grid.boundConds1[i].vertex;
 		fInBoundConds1 >> grid.boundConds1[i].formulaNumber;
 	}
 
@@ -133,7 +154,7 @@ void input(Grid& grid) {
 }
 
 // LU Факторизация
-void calcLU(Matrix& matrix) {
+void calcLU(CRSMatrix& matrix) {
 	double sumU, sumL, sumD;
 	int n = matrix.n;
 
@@ -179,7 +200,7 @@ void calcLU(Matrix& matrix) {
 }
 
 // Прямой ход Ly = F
-void calcDir(Matrix& matrix, vector<double>& y, vector<double>& F) {
+void calcDir(CRSMatrix& matrix, vector<double>& y, vector<double>& F) {
 	double sum, buf;
 	int n = matrix.n;
 
@@ -210,7 +231,7 @@ void calcDir(Matrix& matrix, vector<double>& y, vector<double>& F) {
 }
 
 // Обратный ход Ux = y
-void calcRev(Matrix& matrix, vector<double>& x, vector<double>& y) {
+void calcRev(CRSMatrix& matrix, vector<double>& x, vector<double>& y) {
 	int n = matrix.n;
 
 	for (int i = 0; i < n; i++) {
@@ -233,7 +254,7 @@ void calcRev(Matrix& matrix, vector<double>& x, vector<double>& y) {
 }
 
 // Умножение матрицы на вектор Ax = res
-void multMV(Matrix& matrix, vector<double>& x, vector<double>& res) {
+void multMV(CRSMatrix& matrix, vector<double>& x, vector<double>& res) {
 	int n = matrix.n;
 
 	for (int i = 0; i < n; i++) {
@@ -268,7 +289,7 @@ double scalarProd(vector<double>& x, vector<double>& y) {
 }
 
 // Локально-оптимальная схема c факторизацией LU
-void LOS_LU(Matrix& matrix) {
+void LOS_LU(CRSMatrix& matrix) {
 
 	double alpha, beta, norm, temp_nev = 0;
 
@@ -344,10 +365,112 @@ void LOS_LU(Matrix& matrix) {
 	cout << "\t" << k << endl;
 
 }
- 
+
+
+double lambda(int areaNumber) {
+
+	if (areaNumber == 0) {
+		return 10;
+	}
+
+	return 0;
+
+}
+
+double gamma(int areaNumber) {
+
+	if (areaNumber == 0) {
+		return 2;
+	}
+
+	return 0;
+
+}
+
+// Построение локальной матрицы жесткости 
+void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
+	
+	double detD = (finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].y - finitElement.nodes[0].y) -
+						(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
+
+	double coef = lambda(finitElement.areaNumber) * abs(detD) / 2;
+
+
+	// Первая строка
+
+	G[0][0] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) + 
+						(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
+
+
+	G[0][1] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
+						(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
+
+
+	G[0][2] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
+						(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);
+
+	// Вторая строка
+
+	G[1][0] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) +
+						(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
+
+
+	G[1][1] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
+						(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
+
+
+	G[1][2] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
+						(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);
+
+	// Третья строка
+
+	G[2][0] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) +
+						(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
+
+
+	G[2][1] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
+						(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
+
+
+	G[2][2] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
+						(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);	
+	
+}
+
+// Построение локальной матрицы массы 
+void MMatrix(FinitElement& finitElement, vector<vector<double>>& M) {
+
+	double detD = (finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].y - finitElement.nodes[0].y) -
+		(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
+
+	double coef = gamma(finitElement.areaNumber) * abs(detD) / 24;
+
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			M[i][j] = (i == j) ? 2 * coef : coef;
+		}
+	}
+
+}
+
+void LocalMatrix(FinitElement& finitElement, DenseMatrix& denseMatrix, vector<vector<double>>& A) {
+
+	GMatrix(finitElement, denseMatrix.G);
+	MMatrix(finitElement, denseMatrix.M);
+
+	for (int j = 0; j < 3; j++) {
+		for (int k = 0; k < 3; k++) {
+			denseMatrix.A[j][k] = denseMatrix.G[j][k] + denseMatrix.M[j][k];
+		}
+	}
+}
+
 int main()
 {
 	Grid grid;
+	DenseMatrix denseMatrix;
+	CRSMatrix crsMatrix;
+
 	input(grid);
 	
 }
