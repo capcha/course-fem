@@ -141,6 +141,13 @@
   <ItemGroup>
     <ClCompile Include="course-fem.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="boundary_conds1.txt" />
+    <Text Include="boundary_conds2.txt" />
+    <Text Include="boundary_conds3.txt" />
+    <Text Include="finit_elems.txt" />
+    <Text Include="nodes.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

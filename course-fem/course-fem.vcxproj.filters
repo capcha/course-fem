@@ -19,4 +19,21 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="nodes.txt">
+      <Filter>Файлы ресурсов</Filter>
+    </Text>
+    <Text Include="finit_elems.txt">
+      <Filter>Файлы ресурсов</Filter>
+    </Text>
+    <Text Include="boundary_conds1.txt">
+      <Filter>Файлы ресурсов</Filter>
+    </Text>
+    <Text Include="boundary_conds2.txt">
+      <Filter>Файлы ресурсов</Filter>
+    </Text>
+    <Text Include="boundary_conds3.txt">
+      <Filter>Файлы ресурсов</Filter>
+    </Text>
+  </ItemGroup>
 </Project>
