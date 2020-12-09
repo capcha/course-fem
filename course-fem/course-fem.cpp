@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <iomanip>
+#include <list>
 
 using namespace std;
 
@@ -26,24 +27,28 @@ struct DenseMatrix {
 
 	vector<vector<double>> G;
 	vector<vector<double>> M;
-	vector<vector<double>> A;	
+	vector<vector<double>> A;
+	vector<double> b;	
 
-};
+	DenseMatrix() {
+		G.resize(3);
+		M.resize(3);
+		A.resize(3);
 
-struct Grid {
+		for (int i = 0; i < 3; i++) {
+			G[i].resize(3);
+			M[i].resize(3);
+			A[i].resize(3);
+		}
 
-	vector<Node> nodes;	
-	vector<FinitElement> finitElements;
-	vector<double> x, f;
-	vector<BoundCond1> boundConds1;
-	vector<BoundCond2> boundConds2;
-	vector<BoundCond3> boundConds3;
-
+		b.resize(3);
+	}
 };
 
 struct Node {
 
-	int x, y;
+	double x, y;
+	int globalNumber;
 
 };
 
@@ -72,6 +77,23 @@ struct BoundCond3 {
 
 };
 
+struct Grid {
+
+	vector<Node> nodes;	
+	vector<FinitElement> finitElements;
+	vector<double> x, f;
+	vector<BoundCond1> boundConds1;
+	vector<BoundCond2> boundConds2;
+	vector<BoundCond3> boundConds3;
+
+};
+
+double F(int areaNumber) {
+	
+	return (areaNumber == 0) ? -20 : 0;
+
+}
+
 // Ввод данных
 void input(Grid& grid) {
 	ifstream fInNodes("nodes.txt");
@@ -89,6 +111,7 @@ void input(Grid& grid) {
 	for (int i = 0; i < count; i++) {
 		fInNodes >> grid.nodes[i].x;
 		fInNodes >> grid.nodes[i].y;
+		fInNodes >> grid.nodes[i].globalNumber;
 	}
 
 	fInNodes.close();
@@ -112,7 +135,9 @@ void input(Grid& grid) {
 
 		grid.finitElements[i].nodes[2] = grid.nodes[temp];
 
-		grid.finitElements[i].areaNumber = i;
+		fInFinitElems >> temp;
+
+		grid.finitElements[i].areaNumber = temp;
 	}
 
 	fInFinitElems.close();
@@ -150,6 +175,108 @@ void input(Grid& grid) {
 	}
 
 	fInBoundConds3.close();
+
+}
+
+void generatePortrait(Grid& grid, CRSMatrix& crsMatrix) {
+
+	int elemAmount = grid.finitElements.size();
+	int funcAmount = grid.nodes.size();
+
+	crsMatrix.d.resize(funcAmount);
+	crsMatrix.x.resize(funcAmount);
+	crsMatrix.F.resize(funcAmount);
+	crsMatrix.z.resize(funcAmount);
+	crsMatrix.r.resize(funcAmount);
+	crsMatrix.p.resize(funcAmount);
+	crsMatrix.di.resize(funcAmount);
+	crsMatrix.temp.resize(funcAmount);
+	crsMatrix.temp0.resize(funcAmount);
+
+	vector<int> listbeg;
+	vector<int> list1;
+	vector<int> list2;
+	
+	listbeg.resize(funcAmount);
+	list1.resize(2 * (funcAmount - 1));
+	list2.resize(2 * (funcAmount - 1));
+	int listsize = -1;
+	int iaddr;
+
+	for (int ielem = 0; ielem < elemAmount; ielem++) {
+		for (int i = 0; i < 3; i++) {
+			int k = grid.finitElements[ielem].nodes[i].globalNumber;
+			
+			for (int j = i + 1; j < 3; j++) {
+				int ind1 = k;
+				int ind2 = grid.finitElements[ielem].nodes[j].globalNumber;
+
+				if (ind2 < ind1) {
+					ind1 = ind2;
+					ind2 = k;
+				}
+
+				iaddr = listbeg[ind2];
+
+				if (iaddr == 0) {
+					listsize++;
+					listbeg[ind2] = listsize;	
+					list1[listsize] = ind1;
+					list2[listsize] = 0;
+				} 
+				else {
+					while (list1[iaddr] < ind1 && list2[iaddr] > 0) {
+						iaddr = list2[iaddr];
+					}
+
+					if (list1[iaddr] > ind1) {
+						listsize++;
+						list1[listsize] = list1[iaddr];
+						list2[listsize] = list2[iaddr];
+						list1[iaddr] = ind1;
+						list2[iaddr] = listsize;
+					}
+					else {
+						if (list1[iaddr] < ind1) {
+							listsize++;
+							list2[iaddr] = listsize;
+							list1[listsize] = ind1;
+							list2[listsize] = 0;
+						}
+					}
+				}
+				
+			}
+
+		}
+	}
+
+	crsMatrix.ig.resize(funcAmount + 1);
+
+	crsMatrix.ggl.resize(list1.size());
+	crsMatrix.ggu.resize(list1.size());
+	crsMatrix.u.resize(list1.size());
+	crsMatrix.l.resize(list1.size());
+	crsMatrix.jg.resize(list1.size());
+
+	crsMatrix.ig[0] = 0;
+
+	for (int i = 0; i < funcAmount; i++) {
+		crsMatrix.ig[i + 1] = crsMatrix.ig[i];
+
+		iaddr = listbeg[i];
+
+		while (iaddr != 0) {
+			crsMatrix.jg[crsMatrix.ig[i + 1] + 1] = list1[iaddr];
+			crsMatrix.ig[i + 1]++;
+			iaddr = list2[iaddr];
+		}
+
+	}
+
+	for (int i = 2; i < funcAmount + 1; i++) {
+		crsMatrix.ig[i]++;
+	}
 
 }
 
@@ -366,22 +493,13 @@ void LOS_LU(CRSMatrix& matrix) {
 
 }
 
-
 double lambda(int areaNumber) {
 
-	if (areaNumber == 0) {
-		return 10;
-	}
-
-	return 0;
+	return (areaNumber == 0) ? 10 : 1;
 
 }
 
 double gamma(int areaNumber) {
-
-	if (areaNumber == 0) {
-		return 2;
-	}
 
 	return 0;
 
@@ -395,55 +513,62 @@ void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 
 	double coef = lambda(finitElement.areaNumber) * abs(detD) / 2;
 
-
 	// Первая строка
 
-	G[0][0] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) + 
-						(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
+	G[0][0] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
+			(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);
 
 
-	G[0][1] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
-						(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
+	G[0][1] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
+			(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);
 
 
 	G[0][2] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
-						(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);
+			(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);
 
 	// Вторая строка
 
-	G[1][0] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) +
-						(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
+	G[1][0] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
+			(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
 
 
 	G[1][1] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
-						(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
+			(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
 
 
-	G[1][2] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
-						(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);
+	G[1][2] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
+			(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
 
 	// Третья строка
 
 	G[2][0] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) +
-						(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
+			(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
 
 
-	G[2][1] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[2].y - finitElement.nodes[0].y) +
-						(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[0].x - finitElement.nodes[2].x)) / (detD * detD);
+	G[2][1] = coef * ((finitElement.nodes[2].y - finitElement.nodes[0].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) +
+			(finitElement.nodes[0].x - finitElement.nodes[2].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
 
 
-	G[2][2] = coef * ((finitElement.nodes[0].y - finitElement.nodes[1].y) * (finitElement.nodes[0].y - finitElement.nodes[1].y) +
-						(finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[1].x - finitElement.nodes[0].x)) / (detD * detD);	
+	G[2][2] = coef * ((finitElement.nodes[1].y - finitElement.nodes[2].y) * (finitElement.nodes[1].y - finitElement.nodes[2].y) +
+			(finitElement.nodes[2].x - finitElement.nodes[1].x) * (finitElement.nodes[2].x - finitElement.nodes[1].x)) / (detD * detD);
 	
 }
 
-// Построение локальной матрицы массы 
-void MMatrix(FinitElement& finitElement, vector<vector<double>>& M) {
+// Построение локальной матрицы массы и правой части
+void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<double>& b) {
 
 	double detD = (finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].y - finitElement.nodes[0].y) -
 		(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
 
-	double coef = gamma(finitElement.areaNumber) * abs(detD) / 24;
+	double coefB = abs(detD) / 24;
+
+	double coef = gamma(finitElement.areaNumber) * coefB;
+
+	double Fvalue = F(finitElement.areaNumber);
+
+	b[0] = 2 * coefB * Fvalue + coefB * Fvalue + coefB * Fvalue;
+	b[1] = coefB * Fvalue + 2 * coefB * Fvalue + coefB * Fvalue;
+	b[2] = coefB * Fvalue + coefB * Fvalue + 2 * coefB * Fvalue;
 
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
@@ -453,10 +578,11 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M) {
 
 }
 
-void LocalMatrix(FinitElement& finitElement, DenseMatrix& denseMatrix, vector<vector<double>>& A) {
+// Построение локальных матриц
+void LocalMatrix(FinitElement& finitElement, DenseMatrix& denseMatrix) {
 
 	GMatrix(finitElement, denseMatrix.G);
-	MMatrix(finitElement, denseMatrix.M);
+	MMatrix(finitElement, denseMatrix.M, denseMatrix.b);
 
 	for (int j = 0; j < 3; j++) {
 		for (int k = 0; k < 3; k++) {
@@ -465,13 +591,69 @@ void LocalMatrix(FinitElement& finitElement, DenseMatrix& denseMatrix, vector<ve
 	}
 }
 
+void GlobalMatrix(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
+
+	int temp;
+
+	for (int i = 0; i < grid.finitElements.size(); i++) {
+
+		LocalMatrix(grid.finitElements[i], denseMatrix);
+
+		for (int k = 0; k < 3; k++) {
+
+			int begI = grid.finitElements[i].nodes[k].globalNumber;
+
+			for (int j = k + 1; j < 3; j++) {
+
+				int endI = grid.finitElements[i].nodes[j].globalNumber;
+
+				if (begI < endI) {
+
+					temp = crsMatrix.ig[endI];
+					while (crsMatrix.jg[temp++] - begI);
+					temp--;
+					crsMatrix.ggl[temp] += denseMatrix.A[k][j];
+					crsMatrix.ggu[temp] += denseMatrix.A[j][k];
+
+				}
+
+				else {
+
+					temp = crsMatrix.ig[begI];
+					while (crsMatrix.jg[temp++] - endI);
+					temp--;
+					crsMatrix.ggl[temp] += denseMatrix.A[k][j];
+					crsMatrix.ggu[temp] += denseMatrix.A[j][k];
+
+				}
+
+			}
+
+			crsMatrix.di[begI] += denseMatrix.A[k][k];
+
+		}
+
+		for (int k = 0; k < 3; k++) {
+
+			crsMatrix.F[grid.finitElements[i].nodes[k].globalNumber] += denseMatrix.b[k];
+
+		}
+	}
+
+}
+
+
 int main()
 {
 	Grid grid;
-	DenseMatrix denseMatrix;
+	DenseMatrix denseMatrix = DenseMatrix();
 	CRSMatrix crsMatrix;
 
 	input(grid);
+
+	generatePortrait(grid, crsMatrix);
+
+	GlobalMatrix(grid, crsMatrix, denseMatrix);
 	
 }
 
