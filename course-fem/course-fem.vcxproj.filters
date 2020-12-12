@@ -35,5 +35,6 @@
     <Text Include="boundary_conds3.txt">
       <Filter>Файлы ресурсов</Filter>
     </Text>
+    <Text Include="output.txt" />
   </ItemGroup>
 </Project>
