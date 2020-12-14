@@ -103,7 +103,7 @@ double F(int formulaNumber) {
 
 }
 
-double lambda(int formulaNumber) {
+double lambda(Node node, int formulaNumber) {
 
 	return (formulaNumber == 0) ? 10 : 1;
 
@@ -537,7 +537,7 @@ void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 	double detD = (finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].y - finitElement.nodes[0].y) -
 						(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
 
-	double coef = lambda(finitElement.formulaNumber) * abs(detD) / 2;
+	double coef = (lambda(finitElement.nodes[0], finitElement.formulaNumber) + lambda(finitElement.nodes[1], finitElement.formulaNumber) + lambda(finitElement.nodes[2], finitElement.formulaNumber)) * abs(detD) / 6;
 
 	// Первая строка
 
