@@ -599,30 +599,40 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 	double detD = (finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].y - finitElement.nodes[0].y) -
 		(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
 
-	double coefB = abs(detD) / 120;
+	double coefB = abs(detD) / 120, sumR;
 
 	double coef = gamma(finitElement.formulaNumber) * coefB;
 
-	double Fvalue0 = F(finitElement.nodes[0], finitElement.formulaNumber);
-	double Fvalue1 = F(finitElement.nodes[1], finitElement.formulaNumber);
-	double Fvalue2 = F(finitElement.nodes[2], finitElement.formulaNumber);
+	vector<double> Fvalue;
 
-	b[0] = coefB * (6 * Fvalue0 * finitElement.nodes[0].r + 2 * Fvalue0 * finitElement.nodes[1].r + 2 * Fvalue0 * finitElement.nodes[2].r +
-						 2 * Fvalue1 * finitElement.nodes[0].r + 2 * Fvalue1 * finitElement.nodes[1].r + Fvalue1 * finitElement.nodes[2].r + 
-						 2 * Fvalue2 * finitElement.nodes[0].r + Fvalue2 * finitElement.nodes[1].r + 2 * Fvalue2 * finitElement.nodes[2].r);
+	Fvalue.resize(3);
 
-	b[1] = coefB * (2 * Fvalue0 * finitElement.nodes[0].r + 2 * Fvalue0 * finitElement.nodes[1].r + Fvalue0 * finitElement.nodes[2].r +
-						 2 * Fvalue1 * finitElement.nodes[0].r + 6 * Fvalue1 * finitElement.nodes[1].r + 2 * Fvalue1 * finitElement.nodes[2].r +
-						 Fvalue2 * finitElement.nodes[0].r + 2* Fvalue2 * finitElement.nodes[1].r + 2 * Fvalue2 * finitElement.nodes[2].r);
+	for (int i = 0; i < 3; i++) {
+		Fvalue[i] = F(finitElement.nodes[i], finitElement.formulaNumber);
+	}
+	
 
-	b[2] = coefB * (2 * Fvalue0 * finitElement.nodes[0].r + Fvalue0 * finitElement.nodes[1].r + 2 * Fvalue0 * finitElement.nodes[2].r +
-						 Fvalue1 * finitElement.nodes[0].r + 2 * Fvalue1 * finitElement.nodes[1].r + 2 * Fvalue1 * finitElement.nodes[2].r +
-						 2 * Fvalue2 * finitElement.nodes[0].r + 2 * Fvalue2 * finitElement.nodes[1].r + 6 * Fvalue2 * finitElement.nodes[2].r);
+	/*b[0] = coefB * (6 * Fvalue[0] * finitElement.nodes[0].r + 2 * Fvalue[0] * finitElement.nodes[1].r + 2 * Fvalue[0] * finitElement.nodes[2].r +
+						 2 * Fvalue[1] * finitElement.nodes[0].r + 2 * Fvalue[1] * finitElement.nodes[1].r + Fvalue[1] * finitElement.nodes[2].r + 
+						 2 * Fvalue[2] * finitElement.nodes[0].r + Fvalue[2] * finitElement.nodes[1].r + 2 * Fvalue[2] * finitElement.nodes[2].r);
+
+	b[1] = coefB * (2 * Fvalue[0] * finitElement.nodes[0].r + 2 * Fvalue[0] * finitElement.nodes[1].r + Fvalue[0] * finitElement.nodes[2].r +
+						 2 * Fvalue[1] * finitElement.nodes[0].r + 6 * Fvalue[1] * finitElement.nodes[1].r + 2 * Fvalue[1] * finitElement.nodes[2].r +
+						 Fvalue[2] * finitElement.nodes[0].r + 2* Fvalue[2] * finitElement.nodes[1].r + 2 * Fvalue[2] * finitElement.nodes[2].r);
+
+	b[2] = coefB * (2 * Fvalue[0] * finitElement.nodes[0].r + Fvalue[0] * finitElement.nodes[1].r + 2 * Fvalue[0] * finitElement.nodes[2].r +
+						 Fvalue[1] * finitElement.nodes[0].r + 2 * Fvalue[1] * finitElement.nodes[1].r + 2 * Fvalue[1] * finitElement.nodes[2].r +
+						 2 * Fvalue[2] * finitElement.nodes[0].r + 2 * Fvalue[2] * finitElement.nodes[1].r + 6 * Fvalue[2] * finitElement.nodes[2].r);*/
 
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
-			M[i][j] = (i == j) ? 3 * finitElement.nodes[i].r + 2 * finitElement.nodes[(i + 1) % 3].r + 2 * finitElement.nodes[(i + 2) % 3].r : 
-										2 * finitElement.nodes[i].r + 2 * finitElement.nodes[j].r + finitElement.nodes[3 - i - j].r;
+			
+			sumR = (i == j) ? 6 * finitElement.nodes[i].r + 2 * finitElement.nodes[(i + 1) % 3].r + 2 * finitElement.nodes[(i + 2) % 3].r :
+									2 * finitElement.nodes[i].r + 2 * finitElement.nodes[j].r + finitElement.nodes[3 - i - j].r;
+			
+			M[i][j] = sumR * coef;
+
+			b[i] += Fvalue[j] * sumR;
 		}
 	}
 
