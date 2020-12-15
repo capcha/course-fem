@@ -1,8 +1,11 @@
-﻿#include <iostream>
+﻿#define _USE_MATH_DEFINES
+
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <iomanip>
 #include <list>
+#include <math.h>  
 
 using namespace std;
 
@@ -146,10 +149,10 @@ void Input(Grid& grid) {
 	grid.nodes.resize(count);
 
 	for (int i = 0; i < count; i++) {
-		fInNodes >> grid.nodes[i].r;
-		fInNodes >> grid.nodes[i].phi;
-		grid.nodes[i].x = grid.nodes[i].r * cos(grid.nodes[i].phi);
-		grid.nodes[i].y = grid.nodes[i].r * sin(grid.nodes[i].phi);
+		fInNodes >> grid.nodes[i].x;
+		fInNodes >> grid.nodes[i].y;
+		grid.nodes[i].r = sqrt(grid.nodes[i].x * grid.nodes[i].x + grid.nodes[i].y * grid.nodes[i].y);
+		grid.nodes[i].phi = acos(grid.nodes[i].x / grid.nodes[i].r) * 180.0 / M_PI;
 		fInNodes >> grid.nodes[i].globalNumber;
 	}
 
@@ -609,6 +612,7 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 
 	for (int i = 0; i < 3; i++) {
 		Fvalue[i] = F(finitElement.nodes[i], finitElement.formulaNumber);
+		b[i] = 0;
 	}
 	
 
@@ -632,7 +636,7 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 			
 			M[i][j] = sumR * coef;
 
-			b[i] += Fvalue[j] * sumR;
+			b[i] += Fvalue[j] * sumR * coefB;
 		}
 	}
 
@@ -703,7 +707,7 @@ void GlobalMatrix(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
 }
 
 double mesG(Node node1, Node node2) {
-	return sqrt((node1.r - node2.r) * (node1.r - node2.r) + (node1.phi - node2.phi) * (node1.phi - node2.phi));
+	return sqrt((node1.x - node2.x) * (node1.x - node2.x) + (node1.y - node2.y) * (node1.y - node2.y));
 }
 
 void CalcboundCond2(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
@@ -847,7 +851,7 @@ void Output(CRSMatrix crsmatrix) {
 	ofstream fOut("output.txt");
 
 	for (int i = 0; i < crsmatrix.r.size(); i++) {
-		fOut << crsmatrix.r[i] << '\t';
+		fOut << crsmatrix.x[i] << '\t';
 	}
 
 	fOut.close();
