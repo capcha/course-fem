@@ -55,6 +55,7 @@ struct DenseMatrix {
 
 struct Node {
 
+	double r, phi;
 	double x, y;
 	int globalNumber;
 
@@ -90,20 +91,19 @@ struct Grid {
 
 	vector<Node> nodes;	
 	vector<FinitElement> finitElements;
-	vector<double> x, f;
 	vector<BoundCond1> boundConds1;
 	vector<BoundCond2> boundConds2;
 	vector<BoundCond3> boundConds3;
 
 };
 
-double F(int formulaNumber) {
+double F(Node& node, int formulaNumber) {
 	
 	return (formulaNumber == 0) ? -20 : 0;
 
 }
 
-double lambda(Node node, int formulaNumber) {
+double lambda(Node& node, int formulaNumber) {
 
 	return (formulaNumber == 0) ? 10 : 1;
 
@@ -123,11 +123,11 @@ double beta() {
 	return 2;
 }
 
-double uBeta(Node node) {
+double uBeta(Node& node) {
 	return 20 * node.y - 27;
 }
 
-double u1(Node node) {
+double u1(Node& node) {
 	return node.y * node.y;
 }
 
@@ -146,8 +146,10 @@ void Input(Grid& grid) {
 	grid.nodes.resize(count);
 
 	for (int i = 0; i < count; i++) {
-		fInNodes >> grid.nodes[i].x;
-		fInNodes >> grid.nodes[i].y;
+		fInNodes >> grid.nodes[i].r;
+		fInNodes >> grid.nodes[i].phi;
+		grid.nodes[i].x = grid.nodes[i].r * cos(grid.nodes[i].phi);
+		grid.nodes[i].y = grid.nodes[i].r * sin(grid.nodes[i].phi);
 		fInNodes >> grid.nodes[i].globalNumber;
 	}
 
@@ -223,10 +225,10 @@ void Portrait(Grid& grid, CRSMatrix& crsMatrix) {
 	int funcAmount = grid.nodes.size();
 
 	crsMatrix.d.resize(funcAmount);
-	crsMatrix.x.resize(funcAmount);
+	crsMatrix.r.resize(funcAmount);
 	crsMatrix.F.resize(funcAmount);
 	crsMatrix.z.resize(funcAmount);
-	crsMatrix.r.resize(funcAmount);
+	crsMatrix.x.resize(funcAmount);
 	crsMatrix.p.resize(funcAmount);
 	crsMatrix.di.resize(funcAmount);
 	crsMatrix.temp.resize(funcAmount);
@@ -369,7 +371,7 @@ void CalcLU(CRSMatrix& matrix) {
 }
 
 // Прямой ход Ly = F
-void CalcDir(CRSMatrix& matrix, vector<double>& y, vector<double>& F) {
+void CalcDir(CRSMatrix& matrix, vector<double>&y, vector<double>& F) {
 	double sum, buf;
 	int n = matrix.n;
 
@@ -399,7 +401,7 @@ void CalcDir(CRSMatrix& matrix, vector<double>& y, vector<double>& F) {
 
 }
 
-// Обратный ход Ux = y
+// Обратный ход Ux = phi
 void CalcRev(CRSMatrix& matrix, vector<double>& x, vector<double>& y) {
 	int n = matrix.n;
 
@@ -535,9 +537,20 @@ void LOS_LU(CRSMatrix& matrix) {
 void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 	
 	double detD = (finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].y - finitElement.nodes[0].y) -
-						(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
+		(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
 
-	double coef = (lambda(finitElement.nodes[0], finitElement.formulaNumber) + lambda(finitElement.nodes[1], finitElement.formulaNumber) + lambda(finitElement.nodes[2], finitElement.formulaNumber)) * abs(detD) / 6;
+	double coef = (lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[0].r 
+					+ lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[1].r
+					+ lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[2].r
+
+					+ lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[1].r / 2
+					+ lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[2].r / 2
+
+					+ lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[0].r / 2
+					+ lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[2].r / 2
+
+					+ lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[0].r / 2
+					+ lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[1].r / 2 ) * abs(detD) / 12;
 
 	// Первая строка
 
@@ -586,19 +599,30 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 	double detD = (finitElement.nodes[1].x - finitElement.nodes[0].x) * (finitElement.nodes[2].y - finitElement.nodes[0].y) -
 		(finitElement.nodes[2].x - finitElement.nodes[0].x) * (finitElement.nodes[1].y - finitElement.nodes[0].y);
 
-	double coefB = abs(detD) / 24;
+	double coefB = abs(detD) / 120;
 
 	double coef = gamma(finitElement.formulaNumber) * coefB;
 
-	double Fvalue = F(finitElement.formulaNumber);
+	double Fvalue0 = F(finitElement.nodes[0], finitElement.formulaNumber);
+	double Fvalue1 = F(finitElement.nodes[1], finitElement.formulaNumber);
+	double Fvalue2 = F(finitElement.nodes[2], finitElement.formulaNumber);
 
-	b[0] = 2 * coefB * Fvalue + coefB * Fvalue + coefB * Fvalue;
-	b[1] = coefB * Fvalue + 2 * coefB * Fvalue + coefB * Fvalue;
-	b[2] = coefB * Fvalue + coefB * Fvalue + 2 * coefB * Fvalue;
+	b[0] = coefB * (6 * Fvalue0 * finitElement.nodes[0].r + 2 * Fvalue0 * finitElement.nodes[1].r + 2 * Fvalue0 * finitElement.nodes[2].r +
+						 2 * Fvalue1 * finitElement.nodes[0].r + 2 * Fvalue1 * finitElement.nodes[1].r + Fvalue1 * finitElement.nodes[2].r + 
+						 2 * Fvalue2 * finitElement.nodes[0].r + Fvalue2 * finitElement.nodes[1].r + 2 * Fvalue2 * finitElement.nodes[2].r);
+
+	b[1] = coefB * (2 * Fvalue0 * finitElement.nodes[0].r + 2 * Fvalue0 * finitElement.nodes[1].r + Fvalue0 * finitElement.nodes[2].r +
+						 2 * Fvalue1 * finitElement.nodes[0].r + 6 * Fvalue1 * finitElement.nodes[1].r + 2 * Fvalue1 * finitElement.nodes[2].r +
+						 Fvalue2 * finitElement.nodes[0].r + 2* Fvalue2 * finitElement.nodes[1].r + 2 * Fvalue2 * finitElement.nodes[2].r);
+
+	b[2] = coefB * (2 * Fvalue0 * finitElement.nodes[0].r + Fvalue0 * finitElement.nodes[1].r + 2 * Fvalue0 * finitElement.nodes[2].r +
+						 Fvalue1 * finitElement.nodes[0].r + 2 * Fvalue1 * finitElement.nodes[1].r + 2 * Fvalue1 * finitElement.nodes[2].r +
+						 2 * Fvalue2 * finitElement.nodes[0].r + 2 * Fvalue2 * finitElement.nodes[1].r + 6 * Fvalue2 * finitElement.nodes[2].r);
 
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
-			M[i][j] = (i == j) ? 2 * coef : coef;
+			M[i][j] = (i == j) ? 3 * finitElement.nodes[i].r + 2 * finitElement.nodes[(i + 1) % 3].r + 2 * finitElement.nodes[(i + 2) % 3].r : 
+										2 * finitElement.nodes[i].r + 2 * finitElement.nodes[j].r + finitElement.nodes[3 - i - j].r;
 		}
 	}
 
@@ -669,7 +693,7 @@ void GlobalMatrix(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
 }
 
 double mesG(Node node1, Node node2) {
-	return sqrt((node1.x - node2.x) * (node1.x - node2.x) + (node1.y - node2.y) * (node1.y - node2.y));
+	return sqrt((node1.r - node2.r) * (node1.r - node2.r) + (node1.phi - node2.phi) * (node1.phi - node2.phi));
 }
 
 void CalcboundCond2(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
@@ -812,8 +836,8 @@ void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 void Output(CRSMatrix crsmatrix) {
 	ofstream fOut("output.txt");
 
-	for (int i = 0; i < crsmatrix.x.size(); i++) {
-		fOut << crsmatrix.x[i] << '\t';
+	for (int i = 0; i < crsmatrix.r.size(); i++) {
+		fOut << crsmatrix.r[i] << '\t';
 	}
 
 	fOut.close();
