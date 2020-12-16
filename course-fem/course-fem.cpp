@@ -723,7 +723,7 @@ void CalcboundCond2(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 		crsMatrix.F[denseMatrix.globNumVert[0]] += hm * (3 * tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
 																	 + tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r
 																	 + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
-																	 + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r) / 60;
+																	 + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r) / 12;
 
 
 
@@ -731,7 +731,7 @@ void CalcboundCond2(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 		crsMatrix.F[denseMatrix.globNumVert[1]] += hm * (tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
 																	  + tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r
 																	  + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
-																	  + 3 * tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r) / 60;
+																	  + 3 * tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r) / 12;
 	}
 
 }
@@ -749,7 +749,7 @@ void CalcboundCond3(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 		hm = mesG(grid.nodes[denseMatrix.globNumVert[0]], grid.nodes[denseMatrix.globNumVert[1]]);
 
-		coef = beta() * hm / 60;
+		coef = beta() * hm / 12;
 	
 		denseMatrix.Acond3[0][0] = coef * (3 * grid.nodes[denseMatrix.globNumVert[0]].r + grid.nodes[denseMatrix.globNumVert[1]].r);
 		denseMatrix.Acond3[0][1] = coef * (grid.nodes[denseMatrix.globNumVert[0]].r + grid.nodes[denseMatrix.globNumVert[1]].r);
