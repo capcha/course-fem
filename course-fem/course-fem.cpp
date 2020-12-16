@@ -97,38 +97,49 @@ struct Grid {
 
 };
 
-double F(int formulaNumber) {
-	
-	return (formulaNumber == 0) ? -20 : 0;
+double F(Node& node, int formulaNumber) {
+
+	return (formulaNumber == 0) ? 5 * node.x + 30 * node.y - 10 : 0;
+	//return (formulaNumber == 0) ? -20 : 0;
 
 }
 
-double lambda(Node node, int formulaNumber) {
+double lambda(Node& node, int formulaNumber) {
 
-	return (formulaNumber == 0) ? 10 : 1;
+	return 1;
+	//return (formulaNumber == 0) ? 10 : 1;
 
 }
 
 double gamma(int formulaNumber) {
 
-	return 0;
+	return (formulaNumber == 0) ? 5 : 0;
+	//return 0;
 
 }
 
-double tetta(int formulaNumber) {
-	return (formulaNumber == 0) ? 20 : 0;
+double tetta(Node& node, int formulaNumber) {
+
+	return (formulaNumber == 0) ? -6 : ((formulaNumber == 1) ? -1 : 6);
+	//return (formulaNumber == 0) ? 20 : 0;
 }
 
 double beta() {
-	return 2;
+
+	return 10;
+	//return 2;
 }
 
-double uBeta(Node node) {
-	return 20 * node.y - 27;
+double uBeta(Node& node) {
+
+	return 6 * node.y + 2.1;
+	//return 20 * node.y - 27;
 }
 
-double u1(Node node) {
-	return node.y * node.y;
+double u1(Node& node) {
+
+	return 6 * node.y + 2;
+	//return node.y * node.y;
 }
 
 // Ввод данных
@@ -240,8 +251,8 @@ void Portrait(Grid& grid, CRSMatrix& crsMatrix) {
 	vector<int> list2;
 	
 	listbeg.resize(funcAmount);
-	list1.resize(2 * (funcAmount - 1));
-	list2.resize(2 * (funcAmount - 1));
+	list1.resize(8 * funcAmount);
+	list2.resize(8 * funcAmount);
 	int listsize = -1;
 	int iaddr;
 
@@ -590,11 +601,18 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 
 	double coef = gamma(finitElement.formulaNumber) * coefB;
 
-	double Fvalue = F(finitElement.formulaNumber);
+	vector<double> Fvalue;
 
-	b[0] = 2 * coefB * Fvalue + coefB * Fvalue + coefB * Fvalue;
-	b[1] = coefB * Fvalue + 2 * coefB * Fvalue + coefB * Fvalue;
-	b[2] = coefB * Fvalue + coefB * Fvalue + 2 * coefB * Fvalue;
+	Fvalue.resize(3);
+
+	for (int i = 0; i < 3; i++) {
+		Fvalue[i] = F(finitElement.nodes[i], finitElement.formulaNumber);
+		b[i] = 0;
+	}
+
+	b[0] = 2 * coefB * Fvalue[0] + coefB * Fvalue[1] + coefB * Fvalue[2];
+	b[1] = coefB * Fvalue[0] + 2 * coefB * Fvalue[1] + coefB * Fvalue[2];
+	b[2] = coefB * Fvalue[0] + coefB * Fvalue[1] + 2 * coefB * Fvalue[2];
 
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
@@ -682,8 +700,8 @@ void CalcboundCond2(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 		hm = mesG(grid.nodes[denseMatrix.globNumVert[0]], grid.nodes[denseMatrix.globNumVert[1]]);
 	
-		crsMatrix.F[denseMatrix.globNumVert[0]] += hm * (2 * tetta(grid.boundConds2[i].formulaNumber) + tetta(grid.boundConds2[i].formulaNumber)) / 6;
-		crsMatrix.F[denseMatrix.globNumVert[1]] += hm * (tetta(grid.boundConds2[i].formulaNumber) + 2 * tetta(grid.boundConds2[i].formulaNumber)) / 6;
+		crsMatrix.F[denseMatrix.globNumVert[0]] += hm * (2 * tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber)) / 6;
+		crsMatrix.F[denseMatrix.globNumVert[1]] += hm * (tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) + 2 * tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber)) / 6;
 	}
 
 }
