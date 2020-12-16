@@ -118,7 +118,7 @@ double gamma(int formulaNumber) {
 
 }
 
-double tetta(int formulaNumber) {
+double tetta(Node& node, int formulaNumber) {
 	return (formulaNumber == 0) ? 20 : 0;
 }
 
@@ -720,8 +720,18 @@ void CalcboundCond2(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 		hm = mesG(grid.nodes[denseMatrix.globNumVert[0]], grid.nodes[denseMatrix.globNumVert[1]]);
 	
-		crsMatrix.F[denseMatrix.globNumVert[0]] += hm * (2 * tetta(grid.boundConds2[i].formulaNumber) + tetta(grid.boundConds2[i].formulaNumber)) / 6;
-		crsMatrix.F[denseMatrix.globNumVert[1]] += hm * (tetta(grid.boundConds2[i].formulaNumber) + 2 * tetta(grid.boundConds2[i].formulaNumber)) / 6;
+		crsMatrix.F[denseMatrix.globNumVert[0]] += hm * (3 * tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
+																	 + tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r
+																	 + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
+																	 + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r) / 60;
+
+
+
+
+		crsMatrix.F[denseMatrix.globNumVert[1]] += hm * (tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
+																	  + tetta(grid.nodes[denseMatrix.globNumVert[0]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r
+																	  + tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[0]].r
+																	  + 3 * tetta(grid.nodes[denseMatrix.globNumVert[1]], grid.boundConds2[i].formulaNumber) * grid.nodes[denseMatrix.globNumVert[1]].r) / 60;
 	}
 
 }
@@ -739,12 +749,12 @@ void CalcboundCond3(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 		hm = mesG(grid.nodes[denseMatrix.globNumVert[0]], grid.nodes[denseMatrix.globNumVert[1]]);
 
-		coef = beta() * hm / 6;
+		coef = beta() * hm / 60;
 	
-		denseMatrix.Acond3[0][0] = 2 * coef;
-		denseMatrix.Acond3[0][1] = coef;
-		denseMatrix.Acond3[1][0] = coef;
-		denseMatrix.Acond3[1][1] = 2 * coef;
+		denseMatrix.Acond3[0][0] = coef * (3 * grid.nodes[denseMatrix.globNumVert[0]].r + grid.nodes[denseMatrix.globNumVert[1]].r);
+		denseMatrix.Acond3[0][1] = coef * (grid.nodes[denseMatrix.globNumVert[0]].r + grid.nodes[denseMatrix.globNumVert[1]].r);
+		denseMatrix.Acond3[1][0] = coef * (grid.nodes[denseMatrix.globNumVert[0]].r + grid.nodes[denseMatrix.globNumVert[1]].r);
+		denseMatrix.Acond3[1][1] = coef * (grid.nodes[denseMatrix.globNumVert[0]].r + 3 * grid.nodes[denseMatrix.globNumVert[1]].r);
 
 		for (int k = 0; k < 2; k++) {
 
@@ -780,8 +790,16 @@ void CalcboundCond3(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 		}
 
-		crsMatrix.F[denseMatrix.globNumVert[0]] += coef * (2 * uBeta(grid.nodes[denseMatrix.globNumVert[0]]) + uBeta(grid.nodes[denseMatrix.globNumVert[1]]));
-		crsMatrix.F[denseMatrix.globNumVert[1]] += coef * (uBeta(grid.nodes[denseMatrix.globNumVert[0]]) + 2 * uBeta(grid.nodes[denseMatrix.globNumVert[1]]));
+		crsMatrix.F[denseMatrix.globNumVert[0]] += coef * (3 * uBeta(grid.nodes[denseMatrix.globNumVert[0]]) * grid.nodes[denseMatrix.globNumVert[0]].r 
+																			+ uBeta(grid.nodes[denseMatrix.globNumVert[0]]) * grid.nodes[denseMatrix.globNumVert[1]].r 
+																			+ uBeta(grid.nodes[denseMatrix.globNumVert[1]]) * grid.nodes[denseMatrix.globNumVert[0]].r
+																			+ uBeta(grid.nodes[denseMatrix.globNumVert[1]]) * grid.nodes[denseMatrix.globNumVert[1]].r);
+
+
+		crsMatrix.F[denseMatrix.globNumVert[1]] += coef * (uBeta(grid.nodes[denseMatrix.globNumVert[0]]) * grid.nodes[denseMatrix.globNumVert[0]].r
+																		 + uBeta(grid.nodes[denseMatrix.globNumVert[0]]) * grid.nodes[denseMatrix.globNumVert[1]].r
+																		 + uBeta(grid.nodes[denseMatrix.globNumVert[1]]) * grid.nodes[denseMatrix.globNumVert[0]].r
+																		 + 3 * uBeta(grid.nodes[denseMatrix.globNumVert[1]]) * grid.nodes[denseMatrix.globNumVert[1]].r);
 
 	}
 
