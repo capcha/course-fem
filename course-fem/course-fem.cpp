@@ -102,36 +102,47 @@ struct Grid {
 
 double F(Node& node, int formulaNumber) {
 	
-	return (formulaNumber == 0) ? -20 : 0;
+	return (formulaNumber == 0) ? 5 * node.x + 30 * node.y - 10 : 0;
+	//return (formulaNumber == 0) ? -20 : 0;
 
 }
 
 double lambda(Node& node, int formulaNumber) {
 
-	return (formulaNumber == 0) ? 10 : 1;
+	return 1;
+	//return (formulaNumber == 0) ? 10 : 1;
 
 }
 
 double gamma(int formulaNumber) {
 
-	return 0;
+	return (formulaNumber == 0) ? 5 : 0;
+	//return 0;
 
 }
 
 double tetta(Node& node, int formulaNumber) {
-	return (formulaNumber == 0) ? 20 : 0;
+
+	return (formulaNumber == 0) ? -6 : ((formulaNumber == 1) ? -1 : 6);
+	//return (formulaNumber == 0) ? 20 : 0;
 }
 
 double beta() {
-	return 2;
+
+	return 10;
+	//return 2;
 }
 
 double uBeta(Node& node) {
-	return 20 * node.y - 27;
+	
+	return 6 * node.y + 2.1;
+	//return 20 * node.y - 27;
 }
 
 double u1(Node& node) {
-	return node.y * node.y;
+
+	return 6 * node.y + 2;
+	//return node.y * node.y;
 }
 
 // Ввод данных
@@ -245,8 +256,8 @@ void Portrait(Grid& grid, CRSMatrix& crsMatrix) {
 	vector<int> list2;
 	
 	listbeg.resize(funcAmount);
-	list1.resize(2 * (funcAmount - 1));
-	list2.resize(2 * (funcAmount - 1));
+	list1.resize(8 * funcAmount);
+	list2.resize(8 * funcAmount );
 	int listsize = -1;
 	int iaddr;
 
