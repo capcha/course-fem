@@ -101,32 +101,34 @@ struct Grid {
 
 double F(Node& node, int formulaNumber) {
 
+	return -12 + node.r * node.r;
 	//return (formulaNumber == 0) ? 5 * node.r + 30 * node.phi - 10 : 0;
-	return (formulaNumber == 0) ? -20 : 0;
+	//return (formulaNumber == 0) ? -20 : 0;
 
 }
 
 double lambda(Node& node, int formulaNumber) {
 
-	//return 1;
-	return (formulaNumber == 0) ? 10 : 1;
+	return 3;
+	//return (formulaNumber == 0) ? 10 : 1;
 
 }
 
 double gamma(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 0;
+	return 1;
 
 }
 
 double tetta(Node& node, int formulaNumber) {
 
+	return 0;
 	//return (formulaNumber == 0) ? -6 : ((formulaNumber == 1) ? -1 : 6);
-	return (formulaNumber == 0) ? 20 : 0;
+	//return (formulaNumber == 0) ? 20 : 0;
 }
 
-double beta() {
+double betaF() {
 
 	//return 10;
 	return 2;
@@ -138,10 +140,11 @@ double uBeta(Node& node) {
 	return 20 * node.phi - 27;
 }
 
-double u1(Node& node) {
+double u1(Node& node, int formulaNumber) {
 
 	//return 6 * node.phi + 2;
-	return node.phi * node.phi;
+	//return node.phi * node.phi;
+	return (formulaNumber == 0) ? 0.01 : 16;
 }
 
 // Ввод данных
@@ -757,7 +760,7 @@ void CalcboundCond3(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 		hm = mesG(grid.nodes[denseMatrix.globNumVert[0]], grid.nodes[denseMatrix.globNumVert[1]]);
 
-		coef = beta() * hm / 12;
+		coef = betaF() * hm / 12;
 
 		denseMatrix.Acond3[0][0] = coef * (3 * grid.nodes[denseMatrix.globNumVert[0]].r + grid.nodes[denseMatrix.globNumVert[1]].r);
 		denseMatrix.Acond3[0][1] = coef * (grid.nodes[denseMatrix.globNumVert[0]].r + grid.nodes[denseMatrix.globNumVert[1]].r);
@@ -822,8 +825,8 @@ void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 		crsMatrix.di[grid.boundConds1[i].globNum1] = 1;
 		crsMatrix.di[grid.boundConds1[i].globNum2] = 1;
 
-		crsMatrix.F[grid.boundConds1[i].globNum1] = u1(grid.nodes[grid.boundConds1[i].globNum1]);
-		crsMatrix.F[grid.boundConds1[i].globNum2] = u1(grid.nodes[grid.boundConds1[i].globNum2]);
+		crsMatrix.F[grid.boundConds1[i].globNum1] = u1(grid.nodes[grid.boundConds1[i].globNum1], grid.boundConds1[i].formulaNumber);
+		crsMatrix.F[grid.boundConds1[i].globNum2] = u1(grid.nodes[grid.boundConds1[i].globNum2], grid.boundConds1[i].formulaNumber);
 
 		temp = crsMatrix.ig[grid.boundConds1[i].globNum1 + 1] - crsMatrix.ig[grid.boundConds1[i].globNum1];
 
@@ -877,7 +880,7 @@ void Output(CRSMatrix crsmatrix) {
 	ofstream fOut("output.txt");
 
 	for (int i = 0; i < crsmatrix.r.size(); i++) {
-		fOut << crsmatrix.r[i] << '\t';
+		fOut << fixed << scientific << setprecision(6) << crsmatrix.r[i] << '\t';
 	}
 
 	fOut.close();
