@@ -101,7 +101,7 @@ struct Grid {
 
 double F(Node& node, int formulaNumber) {
 
-	return node.r * node.r * node.phi - 6 * node.r * node.phi;
+	return node.r;
 	//return (formulaNumber == 0) ? 5 * node.r + 30 * node.phi - 10 : 0;
 	//return (formulaNumber == 0) ? -20 : 0;
 
@@ -109,7 +109,7 @@ double F(Node& node, int formulaNumber) {
 
 double lambda(Node& node, int formulaNumber) {
 
-	return -2 * node.r * node.phi;
+	return 2;
 	//return (formulaNumber == 0) ? 10 : 1;
 
 }
@@ -117,7 +117,7 @@ double lambda(Node& node, int formulaNumber) {
 double gamma(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 1;
+	return 3;
 
 }
 
@@ -145,7 +145,8 @@ double u1(Node& node, int formulaNumber) {
 	//return 6 * node.phi + 2;
 	//return node.phi * node.phi;
 	//return (formulaNumber == 0) ? 0.01 : 16;
-	return exp(node.phi);
+	return node.r;
+
 }
 
 // Ввод данных
@@ -828,11 +829,11 @@ void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 	for (int i = 0; i < grid.boundConds1.size(); i++) {
 
-		crsMatrix.di[grid.boundConds1[i].globNum1] = 1;
-		crsMatrix.di[grid.boundConds1[i].globNum2] = 1;
+		crsMatrix.di[grid.boundConds1[i].globNum1] = 1e32;
+		crsMatrix.di[grid.boundConds1[i].globNum2] = 1e32;
 
-		crsMatrix.F[grid.boundConds1[i].globNum1] = u1(grid.nodes[grid.boundConds1[i].globNum1], grid.boundConds1[i].formulaNumber);
-		crsMatrix.F[grid.boundConds1[i].globNum2] = u1(grid.nodes[grid.boundConds1[i].globNum2], grid.boundConds1[i].formulaNumber);
+		crsMatrix.F[grid.boundConds1[i].globNum1] = u1(grid.nodes[grid.boundConds1[i].globNum1], grid.boundConds1[i].formulaNumber) * 1e32;
+		crsMatrix.F[grid.boundConds1[i].globNum2] = u1(grid.nodes[grid.boundConds1[i].globNum2], grid.boundConds1[i].formulaNumber) * 1e32;
 
 		temp = crsMatrix.ig[grid.boundConds1[i].globNum1 + 1] - crsMatrix.ig[grid.boundConds1[i].globNum1];
 
@@ -905,46 +906,44 @@ void procLU(CRSMatrix& crsMatrix) {
 
 }
 
-double getValue(Grid& grid, CRSMatrix& crsMatrix, double r, double phi) {
+double getValue(FinitElement& finitElement, CRSMatrix& crsMatrix, double r, double phi) {
  
 	double detD, s01, s12, s20, result = 0;
 	vector<double> L(3);
 
-	for (int i = 0; i < grid.finitElements.size(); i++) {
-		detD = det(grid.finitElements[i]);
+	detD = det(finitElement);
 
-		s01 = abs((grid.finitElements[i].nodes[1].r - grid.finitElements[i].nodes[0].r) * (phi - grid.finitElements[0].nodes[0].phi) -
-			(r - grid.finitElements[i].nodes[0].r) * (grid.finitElements[i].nodes[1].phi - grid.finitElements[i].nodes[0].phi));
+	s01 = abs((finitElement.nodes[1].r - finitElement.nodes[0].r) * (phi - finitElement.nodes[0].phi) -
+			(r - finitElement.nodes[0].r) * (finitElement.nodes[1].phi - finitElement.nodes[0].phi));
 
-		s12 = abs((grid.finitElements[i].nodes[2].r - grid.finitElements[i].nodes[1].r) * (phi - grid.finitElements[i].nodes[1].phi) -
-			(r - grid.finitElements[i].nodes[1].r) * (grid.finitElements[i].nodes[2].phi - grid.finitElements[i].nodes[1].phi));
+	s12 = abs((finitElement.nodes[2].r - finitElement.nodes[1].r) * (phi - finitElement.nodes[1].phi) -
+			(r - finitElement.nodes[1].r) * (finitElement.nodes[2].phi - finitElement.nodes[1].phi));
 
-		s20 = abs((grid.finitElements[i].nodes[0].r - grid.finitElements[i].nodes[2].r) * (phi - grid.finitElements[i].nodes[2].phi) -
-			(r - grid.finitElements[i].nodes[2].r) * (grid.finitElements[i].nodes[0].phi - grid.finitElements[i].nodes[2].phi));
+	s20 = abs((finitElement.nodes[0].r - finitElement.nodes[2].r) * (phi - finitElement.nodes[2].phi) -
+			(r - finitElement.nodes[2].r) * (finitElement.nodes[0].phi - finitElement.nodes[2].phi));
 
-		if (abs(abs(detD) - (s01 + s12 + s20)) < 1e-10) {
-			L[0] = ((grid.finitElements[i].nodes[1].r * grid.finitElements[i].nodes[2].phi - grid.finitElements[i].nodes[2].r * grid.finitElements[i].nodes[1].phi) +
-					 (grid.finitElements[i].nodes[1].phi - grid.finitElements[i].nodes[2].phi) * r +
-					 (grid.finitElements[i].nodes[2].r - grid.finitElements[i].nodes[1].r) * phi) / detD;
+	/*L[0] = ((finitElement.nodes[1].r * finitElement.nodes[2].phi - finitElement.nodes[2].r * finitElement.nodes[1].phi) +
+		(finitElement.nodes[1].phi - finitElement.nodes[2].phi) * r +
+		(finitElement.nodes[2].r - finitElement.nodes[1].r) * phi) / detD;
 
-			L[1] = ((grid.finitElements[i].nodes[2].r * grid.finitElements[i].nodes[0].phi - grid.finitElements[i].nodes[0].r * grid.finitElements[i].nodes[2].phi) +
-				(grid.finitElements[i].nodes[2].phi - grid.finitElements[i].nodes[0].phi) * r +
-				(grid.finitElements[i].nodes[0].r - grid.finitElements[i].nodes[2].r) * phi) / detD;
+	L[1] = ((finitElement.nodes[2].r * finitElement.nodes[0].phi - finitElement.nodes[0].r * finitElement.nodes[2].phi) +
+		(finitElement.nodes[2].phi - finitElement.nodes[0].phi) * r +
+		(finitElement.nodes[0].r - finitElement.nodes[2].r) * phi) / detD;
 
-			L[2] = ((grid.finitElements[i].nodes[0].r * grid.finitElements[i].nodes[1].phi - grid.finitElements[i].nodes[1].r * grid.finitElements[i].nodes[0].phi) +
-				(grid.finitElements[i].nodes[0].phi - grid.finitElements[i].nodes[1].phi) * r +
-				(grid.finitElements[i].nodes[1].r - grid.finitElements[i].nodes[0].r) * phi) / detD;
+	L[2] = ((finitElement.nodes[0].r * finitElement.nodes[1].phi - finitElement.nodes[1].r * finitElement.nodes[0].phi) +
+		(finitElement.nodes[0].phi - finitElement.nodes[1].phi) * r +
+		(finitElement.nodes[1].r - finitElement.nodes[0].r) * phi) / detD;*/
 
-			for (int j = 0; j < 3; j++) {
-				result += crsMatrix.x[grid.finitElements[i].nodes[j].globalNumber] * L[j];
-			}
-			break;
-		}
+	L[0] = s12 / abs(detD);
+	L[1] = s20 / abs(detD);
+	L[2] = s01 / abs(detD);
+
+	for (int j = 0; j < 3; j++) {
+			result += crsMatrix.x[finitElement.nodes[j].globalNumber] * L[j];
 	}
-
+	
 	return result;
 }
-
 
 int main()
 {
@@ -970,6 +969,8 @@ int main()
 
 	Output(crsMatrix);
 
-	cout << fixed << scientific << setprecision(6) << getValue(grid, crsMatrix, 3, 1) << endl;
-	cout << fixed << scientific << setprecision(6) << exp(1) << endl;
+	cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[0], crsMatrix, 3.5, 1.5) << endl;
+	/*cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[0], crsMatrix, 2.2, 1.4) << endl;
+	cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[3], crsMatrix, 3.6, 2) << endl;
+	cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[5], crsMatrix, 4.5, 1) << endl;*/
 }
