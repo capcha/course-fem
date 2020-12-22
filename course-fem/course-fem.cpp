@@ -101,7 +101,7 @@ struct Grid {
 
 double F(Node& node, int formulaNumber) {
 
-	return -12 + node.r * node.r;
+	return node.r * node.r * node.phi - 6 * node.r * node.phi;
 	//return (formulaNumber == 0) ? 5 * node.r + 30 * node.phi - 10 : 0;
 	//return (formulaNumber == 0) ? -20 : 0;
 
@@ -109,7 +109,7 @@ double F(Node& node, int formulaNumber) {
 
 double lambda(Node& node, int formulaNumber) {
 
-	return 3;
+	return -2 * node.r * node.phi;
 	//return (formulaNumber == 0) ? 10 : 1;
 
 }
@@ -144,7 +144,8 @@ double u1(Node& node, int formulaNumber) {
 
 	//return 6 * node.phi + 2;
 	//return node.phi * node.phi;
-	return (formulaNumber == 0) ? 0.01 : 16;
+	//return (formulaNumber == 0) ? 0.01 : 16;
+	return exp(node.phi);
 }
 
 // Ввод данных
@@ -242,7 +243,7 @@ void Portrait(Grid& grid, CRSMatrix& crsMatrix) {
 	crsMatrix.r.resize(funcAmount);
 	crsMatrix.F.resize(funcAmount);
 	crsMatrix.z.resize(funcAmount);
-	crsMatrix.r.resize(funcAmount);
+	crsMatrix.x.resize(funcAmount);
 	crsMatrix.p.resize(funcAmount);
 	crsMatrix.di.resize(funcAmount);
 	crsMatrix.temp.resize(funcAmount);
@@ -483,7 +484,7 @@ void LOS_LU(CRSMatrix& matrix) {
 
 	CalcLU(matrix);
 	// A * x0
-	MultMV(matrix, matrix.r, matrix.temp);
+	MultMV(matrix, matrix.x, matrix.temp);
 
 	// f - A * x0
 	for (int i = 0; i < n; i++) {
@@ -515,7 +516,7 @@ void LOS_LU(CRSMatrix& matrix) {
 
 		for (int i = 0; i < n; i++) {
 
-			matrix.r[i] = matrix.r[i] + alpha * matrix.z[i];
+			matrix.x[i] = matrix.x[i] + alpha * matrix.z[i];
 			matrix.r[i] = matrix.r[i] - alpha * matrix.p[i];
 
 		}
@@ -547,11 +548,17 @@ void LOS_LU(CRSMatrix& matrix) {
 
 }
 
+double det(FinitElement& finitElement) {
+
+	return (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) -
+		(finitElement.nodes[2].r - finitElement.nodes[0].r) * (finitElement.nodes[1].phi - finitElement.nodes[0].phi);
+
+}
+
 // Построение локальной матрицы жесткости 
 void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 
-	double detD = (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) -
-		(finitElement.nodes[2].r - finitElement.nodes[0].r) * (finitElement.nodes[1].phi - finitElement.nodes[0].phi);
+	double detD = det(finitElement);
 
 	double coef1 = (2 * lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[0].r
 		+ 2 * lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[1].r
@@ -623,8 +630,7 @@ void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 // Построение локальной матрицы массы и правой части
 void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<double>& b) {
 
-	double detD = (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) -
-		(finitElement.nodes[2].r - finitElement.nodes[0].r) * (finitElement.nodes[1].phi - finitElement.nodes[0].phi);
+	double detD = det(finitElement);
 
 	double coefB = abs(detD) / 120, sumR;
 
@@ -876,11 +882,11 @@ void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 	}
 }
 
-void Output(CRSMatrix crsmatrix) {
+void Output(CRSMatrix& crsmatrix) {
 	ofstream fOut("output.txt");
 
-	for (int i = 0; i < crsmatrix.r.size(); i++) {
-		fOut << fixed << scientific << setprecision(6) << crsmatrix.r[i] << '\t';
+	for (int i = 0; i < crsmatrix.x.size(); i++) {
+		fOut << fixed << scientific << setprecision(6) << crsmatrix.x[i] << '\t';
 	}
 
 	fOut.close();
@@ -899,12 +905,53 @@ void procLU(CRSMatrix& crsMatrix) {
 
 }
 
+double getValue(Grid& grid, CRSMatrix& crsMatrix, double r, double phi) {
+ 
+	double detD, s01, s12, s20, result = 0;
+	vector<double> L(3);
+
+	for (int i = 0; i < grid.finitElements.size(); i++) {
+		detD = det(grid.finitElements[i]);
+
+		s01 = abs((grid.finitElements[i].nodes[1].r - grid.finitElements[i].nodes[0].r) * (phi - grid.finitElements[0].nodes[0].phi) -
+			(r - grid.finitElements[i].nodes[0].r) * (grid.finitElements[i].nodes[1].phi - grid.finitElements[i].nodes[0].phi));
+
+		s12 = abs((grid.finitElements[i].nodes[2].r - grid.finitElements[i].nodes[1].r) * (phi - grid.finitElements[i].nodes[1].phi) -
+			(r - grid.finitElements[i].nodes[1].r) * (grid.finitElements[i].nodes[2].phi - grid.finitElements[i].nodes[1].phi));
+
+		s20 = abs((grid.finitElements[i].nodes[0].r - grid.finitElements[i].nodes[2].r) * (phi - grid.finitElements[i].nodes[2].phi) -
+			(r - grid.finitElements[i].nodes[2].r) * (grid.finitElements[i].nodes[0].phi - grid.finitElements[i].nodes[2].phi));
+
+		if (abs(abs(detD) - (s01 + s12 + s20)) < 1e-10) {
+			L[0] = ((grid.finitElements[i].nodes[1].r * grid.finitElements[i].nodes[2].phi - grid.finitElements[i].nodes[2].r * grid.finitElements[i].nodes[1].phi) +
+					 (grid.finitElements[i].nodes[1].phi - grid.finitElements[i].nodes[2].phi) * r +
+					 (grid.finitElements[i].nodes[2].r - grid.finitElements[i].nodes[1].r) * phi) / detD;
+
+			L[1] = ((grid.finitElements[i].nodes[2].r * grid.finitElements[i].nodes[0].phi - grid.finitElements[i].nodes[0].r * grid.finitElements[i].nodes[2].phi) +
+				(grid.finitElements[i].nodes[2].phi - grid.finitElements[i].nodes[0].phi) * r +
+				(grid.finitElements[i].nodes[0].r - grid.finitElements[i].nodes[2].r) * phi) / detD;
+
+			L[2] = ((grid.finitElements[i].nodes[0].r * grid.finitElements[i].nodes[1].phi - grid.finitElements[i].nodes[1].r * grid.finitElements[i].nodes[0].phi) +
+				(grid.finitElements[i].nodes[0].phi - grid.finitElements[i].nodes[1].phi) * r +
+				(grid.finitElements[i].nodes[1].r - grid.finitElements[i].nodes[0].r) * phi) / detD;
+
+			for (int j = 0; j < 3; j++) {
+				result += crsMatrix.x[grid.finitElements[i].nodes[j].globalNumber] * L[j];
+			}
+			break;
+		}
+	}
+
+	return result;
+}
+
+
 int main()
 {
 	Grid grid;
 	DenseMatrix denseMatrix = DenseMatrix();
 	CRSMatrix crsMatrix;
-
+	
 	Input(grid);
 
 	Portrait(grid, crsMatrix);
@@ -922,4 +969,7 @@ int main()
 	LOS_LU(crsMatrix);
 
 	Output(crsMatrix);
+
+	cout << fixed << scientific << setprecision(6) << getValue(grid, crsMatrix, 3, 1) << endl;
+	cout << fixed << scientific << setprecision(6) << exp(1) << endl;
 }
