@@ -36,5 +36,6 @@
       <Filter>Файлы ресурсов</Filter>
     </Text>
     <Text Include="output.txt" />
+    <Text Include="Debug\test.txt" />
   </ItemGroup>
 </Project>

@@ -61,6 +61,12 @@ struct Node {
 	double r, phi;
 	int globalNumber;
 
+	Node(double rr, double phii) {
+		r = rr;
+		phi = phii;
+	}
+	
+	Node() {}
 };
 
 // Ввод упорядоченный по локальным базисным векторам
@@ -101,8 +107,9 @@ struct Grid {
 
 double F(Node& node, int formulaNumber) {
 
-	return node.r;
-	//return (formulaNumber == 0) ? 5 * node.r + 30 * node.phi - 10 : 0;
+	//return 3 * (node.r) ;
+	return 3 * (4 * node.phi - 1);
+	//return -6 * node.r * node.phi + node.r * node.r * node.phi;
 	//return (formulaNumber == 0) ? -20 : 0;
 
 }
@@ -123,21 +130,21 @@ double gamma(int formulaNumber) {
 
 double tetta(Node& node, int formulaNumber) {
 
-	return 0;
 	//return (formulaNumber == 0) ? -6 : ((formulaNumber == 1) ? -1 : 6);
-	//return (formulaNumber == 0) ? 20 : 0;
+	return -8;
+
 }
 
 double betaF() {
 
 	//return 10;
-	return 2;
+	return 0;
 }
 
 double uBeta(Node& node) {
 
 	//return 6 * node.phi + 2.1;
-	return 20 * node.phi - 27;
+	return 0;
 }
 
 double u1(Node& node, int formulaNumber) {
@@ -145,7 +152,7 @@ double u1(Node& node, int formulaNumber) {
 	//return 6 * node.phi + 2;
 	//return node.phi * node.phi;
 	//return (formulaNumber == 0) ? 0.01 : 16;
-	return node.r;
+	return 4 * node.phi - 1;
 
 }
 
@@ -643,7 +650,7 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 
 	for (int i = 0; i < 3; i++) {
 		Fvalue[i] = F(finitElement.nodes[i], finitElement.formulaNumber);
-		//b[i] = 0;
+		b[i] = 0;
 	}
 
 	for (int i = 0; i < 3; i++) {
@@ -829,11 +836,11 @@ void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 	for (int i = 0; i < grid.boundConds1.size(); i++) {
 
-		crsMatrix.di[grid.boundConds1[i].globNum1] = 1e32;
-		crsMatrix.di[grid.boundConds1[i].globNum2] = 1e32;
+		crsMatrix.di[grid.boundConds1[i].globNum1] = 1;
+		crsMatrix.di[grid.boundConds1[i].globNum2] = 1;
 
-		crsMatrix.F[grid.boundConds1[i].globNum1] = u1(grid.nodes[grid.boundConds1[i].globNum1], grid.boundConds1[i].formulaNumber) * 1e32;
-		crsMatrix.F[grid.boundConds1[i].globNum2] = u1(grid.nodes[grid.boundConds1[i].globNum2], grid.boundConds1[i].formulaNumber) * 1e32;
+		crsMatrix.F[grid.boundConds1[i].globNum1] = u1(grid.nodes[grid.boundConds1[i].globNum1], grid.boundConds1[i].formulaNumber);
+		crsMatrix.F[grid.boundConds1[i].globNum2] = u1(grid.nodes[grid.boundConds1[i].globNum2], grid.boundConds1[i].formulaNumber);
 
 		temp = crsMatrix.ig[grid.boundConds1[i].globNum1 + 1] - crsMatrix.ig[grid.boundConds1[i].globNum1];
 
@@ -887,7 +894,7 @@ void Output(CRSMatrix& crsmatrix) {
 	ofstream fOut("output.txt");
 
 	for (int i = 0; i < crsmatrix.x.size(); i++) {
-		fOut << fixed << scientific << setprecision(6) << crsmatrix.x[i] << '\t';
+		fOut << fixed << scientific << setprecision(6) << crsmatrix.x[i] << endl;
 	}
 
 	fOut.close();
@@ -921,18 +928,6 @@ double getValue(FinitElement& finitElement, CRSMatrix& crsMatrix, double r, doub
 
 	s20 = abs((finitElement.nodes[0].r - finitElement.nodes[2].r) * (phi - finitElement.nodes[2].phi) -
 			(r - finitElement.nodes[2].r) * (finitElement.nodes[0].phi - finitElement.nodes[2].phi));
-
-	/*L[0] = ((finitElement.nodes[1].r * finitElement.nodes[2].phi - finitElement.nodes[2].r * finitElement.nodes[1].phi) +
-		(finitElement.nodes[1].phi - finitElement.nodes[2].phi) * r +
-		(finitElement.nodes[2].r - finitElement.nodes[1].r) * phi) / detD;
-
-	L[1] = ((finitElement.nodes[2].r * finitElement.nodes[0].phi - finitElement.nodes[0].r * finitElement.nodes[2].phi) +
-		(finitElement.nodes[2].phi - finitElement.nodes[0].phi) * r +
-		(finitElement.nodes[0].r - finitElement.nodes[2].r) * phi) / detD;
-
-	L[2] = ((finitElement.nodes[0].r * finitElement.nodes[1].phi - finitElement.nodes[1].r * finitElement.nodes[0].phi) +
-		(finitElement.nodes[0].phi - finitElement.nodes[1].phi) * r +
-		(finitElement.nodes[1].r - finitElement.nodes[0].r) * phi) / detD;*/
 
 	L[0] = s12 / abs(detD);
 	L[1] = s20 / abs(detD);
@@ -968,9 +963,107 @@ int main()
 	LOS_LU(crsMatrix);
 
 	Output(crsMatrix);
+	Node node = Node(3.5, 1);
 
-	cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[0], crsMatrix, 3.5, 1.5) << endl;
-	/*cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[0], crsMatrix, 2.2, 1.4) << endl;
-	cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[3], crsMatrix, 3.6, 2) << endl;
-	cout << fixed << scientific << setprecision(6) << getValue(grid.finitElements[5], crsMatrix, 4.5, 1) << endl;*/
+	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[2], crsMatrix, 3.5, 1) << '\t' << u1(node, 0) - getValue(grid.finitElements[2], crsMatrix, 3.5, 1) << endl;
+	node = Node(2.5, 1);
+	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[0], crsMatrix, 2.5, 1) << '\t' << u1(node, 0) - getValue(grid.finitElements[0], crsMatrix, 2.5, 1) << endl;
+	node = Node(3, 1.5);
+	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[1], crsMatrix, 3, 1.5) << '\t' <<u1(node, 0) - getValue(grid.finitElements[1], crsMatrix, 3, 1.5) << endl;
+	node = Node(3, 0.5);
+	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[3], crsMatrix, 3, 0.5) << '\t' << u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5) << endl;
+	node = Node(3, 1);
+	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[3], crsMatrix, 3, 1) << '\t' <<u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 1) << endl;
+
+	//for (int i = 9; i < 13; i++) {
+	//	node = Node(grid.nodes[i].r, grid.nodes[i].phi);
+
+	//	cout << fixed << scientific << setprecision(6) << u1(node, 0) - crsMatrix.x[i] << endl;
+	//}
+	double A = 0;
+	for (int i = 0; i < crsMatrix.n; i++) {
+		node = Node(grid.nodes[i].r, grid.nodes[i].phi);
+		cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << crsMatrix.x[i] << '\t' << u1(node, 0) - crsMatrix.x[i] << '\t' << "Z" << endl;
+	}
+
+	/*node = Node(3.5, 1);
+	A += (u1(node, 0) - getValue(grid.finitElements[11], crsMatrix, 3.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[11], crsMatrix, 3.5, 1));
+	node = Node(2.5, 1);
+
+	A += (u1(node, 0) - getValue(grid.finitElements[5], crsMatrix, 2.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[5], crsMatrix, 2.5, 1));
+	node = Node(3, 1.5);
+
+	A += (u1(node, 0) - getValue(grid.finitElements[7], crsMatrix, 3, 1.5)) * (u1(node, 0) - getValue(grid.finitElements[7], crsMatrix, 3, 1.5));
+	node = Node(3, 0.5);
+
+	A += (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5)) * (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5));
+
+
+	cout << fixed << scientific << setprecision(6) << sqrt(A) << endl;*/
+	node = Node(3.5, 1);
+	A += (u1(node, 0) - getValue(grid.finitElements[2], crsMatrix, 3.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[2], crsMatrix, 3.5, 1));
+	node = Node(2.5, 1);
+
+	A += (u1(node, 0) - getValue(grid.finitElements[0], crsMatrix, 2.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[0], crsMatrix, 2.5, 1));
+	node = Node(3, 1.5);
+
+	A += (u1(node, 0) - getValue(grid.finitElements[1], crsMatrix, 3, 1.5)) * (u1(node, 0) - getValue(grid.finitElements[1], crsMatrix, 3, 1.5));
+	node = Node(3, 0.5);
+
+	A += (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5)) * (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5));
+
+
+	cout << fixed << scientific << setprecision(6) << sqrt(A) << endl;
+	/*ifstream fIn("test.txt");
+
+
+	double A = 0;
+
+	double buf, uv, un;
+
+	for (int i = 0; i < 8; i++) {
+		fIn >> buf;	
+
+		A+=(buf*buf);
+		
+		A = sqrt(A);
+	}
+	
+	uv = A;
+
+	A = 0;
+
+	for (int i = 0; i < 8; i++) {
+		fIn >> buf;
+
+		A += (buf * buf);
+
+		A = sqrt(A);
+	}
+	
+	uv = uv / A;
+
+	for (int i = 0; i < 12; i++) {
+		fIn >> buf;
+
+		A += (buf * buf);
+
+		A = sqrt(A);
+	}
+	
+	un = A;
+
+	A = 0;
+	for (int i = 0; i < 12; i++) {
+		fIn >> buf;
+
+		A += (buf * buf);
+
+		A = sqrt(A);
+	}
+
+	un = un / A;
+
+	cout << fixed << scientific << setprecision(6) << uv;
+	cout << fixed << scientific << setprecision(6) << un;*/
 }
