@@ -643,7 +643,7 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 
 	for (int i = 0; i < 3; i++) {
 		Fvalue[i] = F(finitElement.nodes[i], finitElement.formulaNumber);
-		b[i] = 0;
+		//b[i] = 0;
 	}
 
 	for (int i = 0; i < 3; i++) {
