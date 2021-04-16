@@ -9,6 +9,41 @@
 
 using namespace std;
 
+struct TimeLayer {
+	double deltaT;
+	int layerCount;
+	vector<vector<double>> q;
+	vector<double> t;
+
+	TimeLayer(Grid& grid, double startTime, double stopTime, int _layerCount) {
+
+		int size = grid.nodes.size();
+		q.resize(3);
+
+		layerCount = _layerCount;
+
+		t.resize(_layerCount);
+
+		deltaT = (stopTime - startTime) / layerCount;
+
+		for (int i = 0; i < layerCount; i++) {
+			t[i] = deltaT * (i + 1);
+		}
+
+		for (int i = 0; i < 3; i++) {
+			q[i].resize(size);
+
+			for (int j = 0; j < size; j++) {
+				grid.nodes[j].t = t[i];
+				q[i][j] = u1(grid.nodes[j], 0);
+			}
+		}
+		
+	}
+
+	TimeLayer() {}
+};
+
 // Матрица в строчном формате для ЛОС
 struct CRSMatrix {
 
@@ -58,12 +93,13 @@ struct DenseMatrix {
 
 struct Node {
 
-	double r, phi;
+	double r, phi, t;
 	int globalNumber;
 
-	Node(double rr, double phii) {
+	Node(double rr, double phii, double tt) {
 		r = rr;
 		phi = phii;
+		t = tt;
 	}
 	
 	Node() {}
@@ -122,6 +158,20 @@ double lambda(Node& node, int formulaNumber) {
 }
 
 double gamma(int formulaNumber) {
+
+	//return (formulaNumber == 0) ? 5 : 0;
+	return 3;
+
+}
+
+double xi(int formulaNumber) {
+
+	//return (formulaNumber == 0) ? 5 : 0;
+	return 3;
+
+}
+
+double sigma(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
 	return 3;
@@ -569,30 +619,30 @@ void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 	double detD = det(finitElement);
 
 	double coef1 = (2 * lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[0].r
-		+ 2 * lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[1].r
-		+ 2 * lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[2].r
+						+ 2 * lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[1].r
+						+ 2 * lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[2].r
 
-		+ lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[1].r
-		+ lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[2].r
+						+ lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[1].r
+						+ lambda(finitElement.nodes[0], finitElement.formulaNumber) * finitElement.nodes[2].r
 
-		+ lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[0].r
-		+ lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[2].r
+						+ lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[0].r
+						+ lambda(finitElement.nodes[1], finitElement.formulaNumber) * finitElement.nodes[2].r
 
-		+ lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[0].r
-		+ lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[1].r) * abs(detD) / 24;
+						+ lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[0].r
+						+ lambda(finitElement.nodes[2], finitElement.formulaNumber) * finitElement.nodes[1].r) * abs(detD) / 24;
 
 	double coef2 = (2 * lambda(finitElement.nodes[0], finitElement.formulaNumber) / finitElement.nodes[0].r
-		+ 2 * lambda(finitElement.nodes[1], finitElement.formulaNumber) / finitElement.nodes[1].r
-		+ 2 * lambda(finitElement.nodes[2], finitElement.formulaNumber) / finitElement.nodes[2].r
+						+ 2 * lambda(finitElement.nodes[1], finitElement.formulaNumber) / finitElement.nodes[1].r
+						+ 2 * lambda(finitElement.nodes[2], finitElement.formulaNumber) / finitElement.nodes[2].r
 
-		+ lambda(finitElement.nodes[0], finitElement.formulaNumber) / finitElement.nodes[1].r
-		+ lambda(finitElement.nodes[0], finitElement.formulaNumber) / finitElement.nodes[2].r
+						+ lambda(finitElement.nodes[0], finitElement.formulaNumber) / finitElement.nodes[1].r
+						+ lambda(finitElement.nodes[0], finitElement.formulaNumber) / finitElement.nodes[2].r
 
-		+ lambda(finitElement.nodes[1], finitElement.formulaNumber) / finitElement.nodes[0].r
-		+ lambda(finitElement.nodes[1], finitElement.formulaNumber) / finitElement.nodes[2].r
+						+ lambda(finitElement.nodes[1], finitElement.formulaNumber) / finitElement.nodes[0].r
+						+ lambda(finitElement.nodes[1], finitElement.formulaNumber) / finitElement.nodes[2].r
 
-		+ lambda(finitElement.nodes[2], finitElement.formulaNumber) / finitElement.nodes[0].r
-		+ lambda(finitElement.nodes[2], finitElement.formulaNumber) / finitElement.nodes[1].r) * abs(detD) / 24;
+						+ lambda(finitElement.nodes[2], finitElement.formulaNumber) / finitElement.nodes[0].r
+						+ lambda(finitElement.nodes[2], finitElement.formulaNumber) / finitElement.nodes[1].r) * abs(detD) / 24;
 
 	// Первая строка
 
@@ -601,37 +651,37 @@ void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 
 
 	G[0][1] = (coef1 * (finitElement.nodes[1].phi - finitElement.nodes[2].phi) * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) +
-		coef2 * (finitElement.nodes[2].r - finitElement.nodes[1].r) * (finitElement.nodes[0].r - finitElement.nodes[2].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[2].r - finitElement.nodes[1].r) * (finitElement.nodes[0].r - finitElement.nodes[2].r)) / (detD * detD);
 
 
 	G[0][2] = (coef1 * (finitElement.nodes[1].phi - finitElement.nodes[2].phi) * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) +
-		coef2 * (finitElement.nodes[2].r - finitElement.nodes[1].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[2].r - finitElement.nodes[1].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
 
 	// Вторая строка
 
 	G[1][0] = (coef1 * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) * (finitElement.nodes[1].phi - finitElement.nodes[2].phi) +
-		coef2 * (finitElement.nodes[0].r - finitElement.nodes[2].r) * (finitElement.nodes[2].r - finitElement.nodes[1].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[0].r - finitElement.nodes[2].r) * (finitElement.nodes[2].r - finitElement.nodes[1].r)) / (detD * detD);
 
 
 	G[1][1] = (coef1 * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) +
-		coef2 * (finitElement.nodes[0].r - finitElement.nodes[2].r) * (finitElement.nodes[0].r - finitElement.nodes[2].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[0].r - finitElement.nodes[2].r) * (finitElement.nodes[0].r - finitElement.nodes[2].r)) / (detD * detD);
 
 
 	G[1][2] = (coef1 * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) +
-		coef2 * (finitElement.nodes[0].r - finitElement.nodes[2].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[0].r - finitElement.nodes[2].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
 
 	// Третья строка
 
 	G[2][0] = (coef1 * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) * (finitElement.nodes[1].phi - finitElement.nodes[2].phi) +
-		coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[2].r - finitElement.nodes[1].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[2].r - finitElement.nodes[1].r)) / (detD * detD);
 
 
 	G[2][1] = (coef1 * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) * (finitElement.nodes[2].phi - finitElement.nodes[0].phi) +
-		coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[0].r - finitElement.nodes[2].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[0].r - finitElement.nodes[2].r)) / (detD * detD);
 
 
 	G[2][2] = (coef1 * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) +
-		coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
+					coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
 
 }
 
@@ -643,6 +693,10 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 	double coefB = abs(detD) / 120, sumR;
 
 	double coef = gamma(finitElement.formulaNumber) * coefB;
+
+	double coefXi = xi(finitElement.formulaNumber) * coefB;
+
+	double coefSigma = sigma(finitElement.formulaNumber) * coefB;
 
 	vector<double> Fvalue;
 
@@ -940,15 +994,42 @@ double getValue(FinitElement& finitElement, CRSMatrix& crsMatrix, double r, doub
 	return result;
 }
 
+void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix, TimeLayer& timeLayer) {
+	
+	for (int i = 3; i < timeLayer.layerCount; i++) {
+		
+		//сюда надо прикрутить временой слой
+		GlobalMatrix(grid, crsMatrix, denseMatrix);
+
+		CalcboundCond1(grid, crsMatrix, denseMatrix);
+
+		procLU(crsMatrix);
+
+		LOS_LU(crsMatrix);
+
+		cout << i << "\t" << "временой слой" << endl;
+		Output(crsMatrix);
+
+		timeLayer.q[0] = timeLayer.q[1];
+		timeLayer.q[1] = timeLayer.q[2];
+		timeLayer.q[2] = crsMatrix.x;
+		
+	}
+
+}
+
 int main()
 {
 	Grid grid;
 	DenseMatrix denseMatrix = DenseMatrix();
 	CRSMatrix crsMatrix;
+	TimeLayer timeLayer;
 	
 	Input(grid);
 
 	Portrait(grid, crsMatrix);
+
+	timeLayer = TimeLayer(grid, 0.0, 10.0, 10);
 
 	GlobalMatrix(grid, crsMatrix, denseMatrix);
 
@@ -963,107 +1044,4 @@ int main()
 	LOS_LU(crsMatrix);
 
 	Output(crsMatrix);
-	Node node = Node(3.5, 1);
-
-	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[2], crsMatrix, 3.5, 1) << '\t' << u1(node, 0) - getValue(grid.finitElements[2], crsMatrix, 3.5, 1) << endl;
-	node = Node(2.5, 1);
-	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[0], crsMatrix, 2.5, 1) << '\t' << u1(node, 0) - getValue(grid.finitElements[0], crsMatrix, 2.5, 1) << endl;
-	node = Node(3, 1.5);
-	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[1], crsMatrix, 3, 1.5) << '\t' <<u1(node, 0) - getValue(grid.finitElements[1], crsMatrix, 3, 1.5) << endl;
-	node = Node(3, 0.5);
-	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[3], crsMatrix, 3, 0.5) << '\t' << u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5) << endl;
-	node = Node(3, 1);
-	cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << getValue(grid.finitElements[3], crsMatrix, 3, 1) << '\t' <<u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 1) << endl;
-
-	//for (int i = 9; i < 13; i++) {
-	//	node = Node(grid.nodes[i].r, grid.nodes[i].phi);
-
-	//	cout << fixed << scientific << setprecision(6) << u1(node, 0) - crsMatrix.x[i] << endl;
-	//}
-	double A = 0;
-	for (int i = 0; i < crsMatrix.n; i++) {
-		node = Node(grid.nodes[i].r, grid.nodes[i].phi);
-		cout << fixed << scientific << setprecision(6) << u1(node, 0) << '\t' << crsMatrix.x[i] << '\t' << u1(node, 0) - crsMatrix.x[i] << '\t' << "Z" << endl;
-	}
-
-	/*node = Node(3.5, 1);
-	A += (u1(node, 0) - getValue(grid.finitElements[11], crsMatrix, 3.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[11], crsMatrix, 3.5, 1));
-	node = Node(2.5, 1);
-
-	A += (u1(node, 0) - getValue(grid.finitElements[5], crsMatrix, 2.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[5], crsMatrix, 2.5, 1));
-	node = Node(3, 1.5);
-
-	A += (u1(node, 0) - getValue(grid.finitElements[7], crsMatrix, 3, 1.5)) * (u1(node, 0) - getValue(grid.finitElements[7], crsMatrix, 3, 1.5));
-	node = Node(3, 0.5);
-
-	A += (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5)) * (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5));
-
-
-	cout << fixed << scientific << setprecision(6) << sqrt(A) << endl;*/
-	node = Node(3.5, 1);
-	A += (u1(node, 0) - getValue(grid.finitElements[2], crsMatrix, 3.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[2], crsMatrix, 3.5, 1));
-	node = Node(2.5, 1);
-
-	A += (u1(node, 0) - getValue(grid.finitElements[0], crsMatrix, 2.5, 1)) * (u1(node, 0) - getValue(grid.finitElements[0], crsMatrix, 2.5, 1));
-	node = Node(3, 1.5);
-
-	A += (u1(node, 0) - getValue(grid.finitElements[1], crsMatrix, 3, 1.5)) * (u1(node, 0) - getValue(grid.finitElements[1], crsMatrix, 3, 1.5));
-	node = Node(3, 0.5);
-
-	A += (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5)) * (u1(node, 0) - getValue(grid.finitElements[3], crsMatrix, 3, 0.5));
-
-
-	cout << fixed << scientific << setprecision(6) << sqrt(A) << endl;
-	/*ifstream fIn("test.txt");
-
-
-	double A = 0;
-
-	double buf, uv, un;
-
-	for (int i = 0; i < 8; i++) {
-		fIn >> buf;	
-
-		A+=(buf*buf);
-		
-		A = sqrt(A);
-	}
-	
-	uv = A;
-
-	A = 0;
-
-	for (int i = 0; i < 8; i++) {
-		fIn >> buf;
-
-		A += (buf * buf);
-
-		A = sqrt(A);
-	}
-	
-	uv = uv / A;
-
-	for (int i = 0; i < 12; i++) {
-		fIn >> buf;
-
-		A += (buf * buf);
-
-		A = sqrt(A);
-	}
-	
-	un = A;
-
-	A = 0;
-	for (int i = 0; i < 12; i++) {
-		fIn >> buf;
-
-		A += (buf * buf);
-
-		A = sqrt(A);
-	}
-
-	un = un / A;
-
-	cout << fixed << scientific << setprecision(6) << uv;
-	cout << fixed << scientific << setprecision(6) << un;*/
 }
