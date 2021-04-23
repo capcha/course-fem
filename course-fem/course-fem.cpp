@@ -1155,6 +1155,10 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 	}
 
 	for (int i = 2; i < timeLayer.layerCount; i++) {
+		for (int j = 0; j < grid.nodes.size(); j++) {
+			grid.nodes[j].t = timeLayer.t[i];
+		}
+
 		timeLayer.deltaT = timeLayer.t[i] - timeLayer.t[i - 2];
 		timeLayer.deltaT1 = timeLayer.t[i - 1] - timeLayer.t[i - 2];
 		timeLayer.deltaT0 = timeLayer.t[i] - timeLayer.t[i - 1];
@@ -1189,6 +1193,7 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 		crsMatrix.r.resize(crsMatrix.di.size());
 		crsMatrix.p.resize(crsMatrix.di.size());
 		crsMatrix.z.resize(crsMatrix.di.size());
+
 	}
 
 }
