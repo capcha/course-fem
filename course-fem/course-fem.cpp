@@ -117,7 +117,7 @@ double F(Node& node, int formulaNumber) {
 
 double lambda(Node& node, int formulaNumber) {
 
-	return 1;
+	return 0;
 	//return (formulaNumber == 0) ? 10 : 1;
 
 }
@@ -132,7 +132,7 @@ double gamma(int formulaNumber) {
 double xi(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 1;
+	return 0;
 
 }
 
@@ -601,7 +601,7 @@ struct TimeLayer {
 			t[i] = deltaT * (i + 1);
 		}
 
-		for (int i = 0; i < 2; i++) {
+		for (int i = 0; i < 3; i++) {
 			q[i].resize(size);
 			f[i].resize(size);
 
@@ -970,7 +970,7 @@ void CalcboundCond3(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) 
 
 }
 
-void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
+void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix) {
 
 	int temp, begI, endI;
 
@@ -1114,7 +1114,7 @@ void CalcD(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G,
 	MultMV(G, timeLayer.q[0], GqJ_2);
 	
 	for (int i = 0; i < crsMatrix.F.size(); i++) {
-		crsMatrix.F[i] = crsMatrix.F[i] / 2 + timeLayer.f[0][i] / 2 + MXqJ_1[i] * 2 / (timeLayer.deltaT1 * timeLayer.deltaT0) - MXqJ_2[i] * 2 / (timeLayer.deltaT * timeLayer.deltaT1) +
+		crsMatrix.F[i] = crsMatrix.F[i] / 2 + timeLayer.f[0][i] / 2 + MXqJ_1[i] * 2 / (timeLayer.deltaT1 * timeLayer.deltaT0) - MXqJ_2[i] * 2 / (timeLayer.deltaT * timeLayer.deltaT1)
 							+ MSqJ_2[i] * timeLayer.deltaT0 / (timeLayer.deltaT * timeLayer.deltaT1) - MSqJ_1[i] * (timeLayer.deltaT0 - timeLayer.deltaT1) / (timeLayer.deltaT1 * timeLayer.deltaT0)
 							- GqJ_2[i] / 2;
 	}
@@ -1163,7 +1163,7 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 		CalcGlobalB(grid, crsMatrix, denseMatrix);
 		CalcD(crsMatrix, Mx, MSigma, G, timeLayer);
 
-		CalcboundCond1(grid, crsMatrix, denseMatrix);
+		CalcboundCond1(grid, crsMatrix);
 
 		procLU(crsMatrix);
 
@@ -1172,20 +1172,23 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 		cout << i << "\t" << "временой слой" << endl;
 		Output(crsMatrix);
 
-		crsMatrix.di.clear();
-		crsMatrix.ggl.clear();
-		crsMatrix.ggu.clear();
-		crsMatrix.x.clear();
-		crsMatrix.temp.clear();
-		crsMatrix.temp0.clear();
-		crsMatrix.F.clear();
-		crsMatrix.r.clear();
-		crsMatrix.p.clear();
-		crsMatrix.z.clear();
-
 		timeLayer.q[0].swap(timeLayer.q[1]);
 		timeLayer.q[1].swap(timeLayer.q[2]);
 		timeLayer.q[2].swap(crsMatrix.x);
+		timeLayer.f[0].swap(timeLayer.f[1]);
+		timeLayer.f[1].swap(timeLayer.f[2]);
+		timeLayer.f[2].swap(crsMatrix.F);
+
+		crsMatrix.di.resize(crsMatrix.di.size());
+		crsMatrix.ggl.resize(crsMatrix.ggl.size());
+		crsMatrix.ggu.resize(crsMatrix.ggl.size());
+		crsMatrix.x.resize(crsMatrix.di.size());
+		crsMatrix.temp.resize(crsMatrix.di.size());
+		crsMatrix.temp0.resize(crsMatrix.di.size());
+		crsMatrix.F.resize(crsMatrix.di.size());
+		crsMatrix.r.resize(crsMatrix.di.size());
+		crsMatrix.p.resize(crsMatrix.di.size());
+		crsMatrix.z.resize(crsMatrix.di.size());
 	}
 
 }
