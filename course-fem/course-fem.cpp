@@ -109,7 +109,7 @@ struct Grid {
 double F(Node& node, int formulaNumber) {
 
 	//return 3 * (node.r) ;
-	return 3;
+	return 1;
 	//return -6 * node.r * node.phi + node.r * node.r * node.phi;
 	//return (formulaNumber == 0) ? -20 : 0;
 
@@ -117,7 +117,7 @@ double F(Node& node, int formulaNumber) {
 
 double lambda(Node& node, int formulaNumber) {
 
-	return 2;
+	return 1;
 	//return (formulaNumber == 0) ? 10 : 1;
 
 }
@@ -132,14 +132,14 @@ double gamma(int formulaNumber) {
 double xi(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 3;
+	return 1;
 
 }
 
 double sigma(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 3;
+	return 1;
 
 }
 
@@ -164,9 +164,6 @@ double uBeta(Node& node) {
 
 double u1(Node& node, int formulaNumber) {
 
-	//return 6 * node.phi + 2;
-	//return node.phi * node.phi;
-	//return (formulaNumber == 0) ? 0.01 : 16;
 	return node.t;
 
 }
@@ -582,7 +579,7 @@ struct TimeLayer {
 	double deltaT, deltaT1, deltaT0;
 	int layerCount;
 	vector<vector<double>> q;
-	vector<vector<double>> b;
+	vector<double> b, fLocal;
 	vector<vector<double>> f;
 	vector<double> t;
 
@@ -592,6 +589,7 @@ struct TimeLayer {
 		q.resize(3);
 		b.resize(3);
 		f.resize(3);
+		fLocal.resize(3);
 
 		layerCount = _layerCount;
 
@@ -603,9 +601,8 @@ struct TimeLayer {
 			t[i] = deltaT * (i + 1);
 		}
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 2; i++) {
 			q[i].resize(size);
-			b[i].resize(size);
 			f[i].resize(size);
 
 			for (int j = 0; j < size; j++) {
@@ -614,25 +611,7 @@ struct TimeLayer {
 				f[i][j] = F(grid.nodes[j], 0);
 			}
 
-			for (int m = 0; m < grid.finitElements.size(); m++) {
-				double detD = det(grid.finitElements[m]);
-				double coefB = abs(detD) / 120, sumR;
-				for (int k = 0; k < 3; k++) {
-					for (int j = 0; j < 3; j++) {
-
-						sumR = (k == j) ? 6 * grid.finitElements[m].nodes[k].r + 2 * grid.finitElements[m].nodes[(k + 1) % 3].r + 2 * grid.finitElements[m].nodes[(k + 2) % 3].r :
-							2 * grid.finitElements[m].nodes[k].r + 2 * grid.finitElements[m].nodes[k].r + grid.finitElements[m].nodes[3 - k - j].r;
-
-						b[i][k] += f[i][j] * sumR * coefB;
-					}
-				}
-
-				for (int k = 0; k < 3; k++) {
-
-					f[i][grid.finitElements[i].nodes[k].globalNumber] += b[i][k];
-
-				}
-			}
+			
 		}
 	}
 	TimeLayer() = default;
@@ -717,7 +696,7 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 
 	double coefB = abs(detD) / 120, sumR;
 
-	double coef = gamma(finitElement.formulaNumber) * coefB;
+	double coef = /*gamma(finitElement.formulaNumber) * */coefB;
 
 	vector<double> Fvalue;
 
@@ -1104,12 +1083,12 @@ double getValue(FinitElement& finitElement, CRSMatrix& crsMatrix, double r, doub
 void CalcA(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G, TimeLayer& timeLayer) {
 
 	for (int i = 0; i < crsMatrix.d.size(); i++) {
-		crsMatrix.d[i] = 2 * Mx.di[i] / (timeLayer.deltaT * timeLayer.deltaT0) +  MSigma.di[i] / (timeLayer.deltaT0) + 0.5 * G.di[i];
+		crsMatrix.di[i] = 2 * Mx.di[i] / (timeLayer.deltaT * timeLayer.deltaT0) +  MSigma.di[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + 0.5 * G.di[i];
 	}
 
 	for (int i = 0; i < crsMatrix.ggl.size(); i++) {
-		crsMatrix.ggl[i] = 2 * Mx.ggl[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggl[i] / (timeLayer.deltaT0) + 0.5 * G.ggl[i];
-		crsMatrix.ggu[i] = 2 * Mx.ggu[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggu[i] / (timeLayer.deltaT0) + 0.5 * G.ggu[i];
+		crsMatrix.ggl[i] = 2 * Mx.ggl[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggl[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + 0.5 * G.ggl[i];
+		crsMatrix.ggu[i] = 2 * Mx.ggu[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggu[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + 0.5 * G.ggu[i];
 	}
 
 }
@@ -1135,7 +1114,7 @@ void CalcD(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G,
 	MultMV(G, timeLayer.q[0], GqJ_2);
 	
 	for (int i = 0; i < crsMatrix.F.size(); i++) {
-		crsMatrix.F[i] = crsMatrix.F[i] / 2 + timeLayer.b[0][i] / 2 + MXqJ_1[i] * 2 / (timeLayer.deltaT1 * timeLayer.deltaT0) - MXqJ_2[i] * 2 / (timeLayer.deltaT * timeLayer.deltaT1) +
+		crsMatrix.F[i] = crsMatrix.F[i] / 2 + timeLayer.f[0][i] / 2 + MXqJ_1[i] * 2 / (timeLayer.deltaT1 * timeLayer.deltaT0) - MXqJ_2[i] * 2 / (timeLayer.deltaT * timeLayer.deltaT1) +
 							+ MSqJ_2[i] * timeLayer.deltaT0 / (timeLayer.deltaT * timeLayer.deltaT1) - MSqJ_1[i] * (timeLayer.deltaT0 - timeLayer.deltaT1) / (timeLayer.deltaT1 * timeLayer.deltaT0)
 							- GqJ_2[i] / 2;
 	}
@@ -1164,8 +1143,8 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 	CalcGlobalM(grid, M, denseMatrix);
 
 	for (int i = 0; i < crsMatrix.d.size(); i++) {
-		Mx.d[i] = coefXi * M.di[i];
-		MSigma.d[i] = coefSigma * M.di[i];
+		Mx.di[i] = coefXi * M.di[i];
+		MSigma.di[i] = coefSigma * M.di[i];
 	}
 
 	for (int i = 0; i < crsMatrix.ggl.size(); i++) {
@@ -1176,12 +1155,10 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 	}
 
 	for (int i = 2; i < timeLayer.layerCount; i++) {
-
 		timeLayer.deltaT = timeLayer.t[i] - timeLayer.t[i - 2];
 		timeLayer.deltaT1 = timeLayer.t[i - 1] - timeLayer.t[i - 2];
 		timeLayer.deltaT0 = timeLayer.t[i] - timeLayer.t[i - 1];
 		
-		//сюда надо прикрутить временой слой
 		CalcA(crsMatrix, Mx, MSigma, G, timeLayer);
 		CalcGlobalB(grid, crsMatrix, denseMatrix);
 		CalcD(crsMatrix, Mx, MSigma, G, timeLayer);
@@ -1195,9 +1172,20 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 		cout << i << "\t" << "временой слой" << endl;
 		Output(crsMatrix);
 
-		timeLayer.q[0] = timeLayer.q[1];
-		timeLayer.q[1] = timeLayer.q[2];
-		timeLayer.q[2] = crsMatrix.x;
+		crsMatrix.di.clear();
+		crsMatrix.ggl.clear();
+		crsMatrix.ggu.clear();
+		crsMatrix.x.clear();
+		crsMatrix.temp.clear();
+		crsMatrix.temp0.clear();
+		crsMatrix.F.clear();
+		crsMatrix.r.clear();
+		crsMatrix.p.clear();
+		crsMatrix.z.clear();
+
+		timeLayer.q[0].swap(timeLayer.q[1]);
+		timeLayer.q[1].swap(timeLayer.q[2]);
+		timeLayer.q[2].swap(crsMatrix.x);
 	}
 
 }
