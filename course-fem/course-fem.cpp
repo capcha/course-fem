@@ -1114,16 +1114,18 @@ void CalcD(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G,
 	MultMV(G, timeLayer.q[0], GqJ_2);
 	
 	for (int i = 0; i < crsMatrix.F.size(); i++) {
-		crsMatrix.F[i] = crsMatrix.F[i] / 2 + timeLayer.f[0][i] / 2 + MXqJ_1[i] * 2 / (timeLayer.deltaT1 * timeLayer.deltaT0) - MXqJ_2[i] * 2 / (timeLayer.deltaT * timeLayer.deltaT1)
-							+ MSqJ_2[i] * timeLayer.deltaT0 / (timeLayer.deltaT * timeLayer.deltaT1) - MSqJ_1[i] * (timeLayer.deltaT0 - timeLayer.deltaT1) / (timeLayer.deltaT1 * timeLayer.deltaT0)
+		crsMatrix.F[i] = crsMatrix.F[i] / 2 
+							+ timeLayer.f[0][i] / 2 
+							+ MXqJ_1[i] * 2 / (timeLayer.deltaT1 * timeLayer.deltaT0) 
+							- MXqJ_2[i] * 2 / (timeLayer.deltaT * timeLayer.deltaT1)
+							+ MSqJ_2[i] * timeLayer.deltaT0 / (timeLayer.deltaT * timeLayer.deltaT1) 
+							- MSqJ_1[i] * (timeLayer.deltaT0 - timeLayer.deltaT1) / (timeLayer.deltaT1 * timeLayer.deltaT0)
 							- GqJ_2[i] / 2;
 	}
 
 }
 
 void CalcGlobalB(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
-	int temp;
-
 	for (int i = 0; i < grid.finitElements.size(); i++) {
 
 		MMatrix(grid.finitElements[i], denseMatrix.M, denseMatrix.b);
