@@ -109,7 +109,7 @@ struct Grid {
 double F(Node& node, int formulaNumber) {
 
 	//return 3 * (node.r) ;
-	return 0;
+	return 3;
 	//return -6 * node.r * node.phi + node.r * node.r * node.phi;
 	//return (formulaNumber == 0) ? -20 : 0;
 
@@ -167,7 +167,7 @@ double u1(Node& node, int formulaNumber) {
 	//return 6 * node.phi + 2;
 	//return node.phi * node.phi;
 	//return (formulaNumber == 0) ? 0.01 : 16;
-	return 1;
+	return node.t;
 
 }
 
@@ -1165,18 +1165,12 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 
 	for (int i = 0; i < crsMatrix.d.size(); i++) {
 		Mx.d[i] = coefXi * M.di[i];
+		MSigma.d[i] = coefSigma * M.di[i];
 	}
 
 	for (int i = 0; i < crsMatrix.ggl.size(); i++) {
 		Mx.ggl[i] = coefXi * M.ggl[i];
 		Mx.ggu[i] = coefXi * M.ggu[i];
-	}
-
-	for (int i = 0; i < crsMatrix.d.size(); i++) {
-		
-	}
-
-	for (int i = 0; i < crsMatrix.ggl.size(); i++) {
 		MSigma.ggl[i] = coefSigma * M.ggl[i];
 		MSigma.ggu[i] = coefSigma * M.ggu[i];
 	}
