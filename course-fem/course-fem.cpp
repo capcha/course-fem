@@ -125,7 +125,7 @@ double lambda(Node& node, int formulaNumber) {
 double gamma(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 3;
+	return 0;
 
 }
 
@@ -146,7 +146,7 @@ double sigma(int formulaNumber) {
 double tetta(Node& node, int formulaNumber) {
 
 	//return (formulaNumber == 0) ? -6 : ((formulaNumber == 1) ? -1 : 6);
-	return -8;
+	return 0;
 
 }
 
@@ -575,6 +575,49 @@ double det(FinitElement& finitElement) {
 
 }
 
+// Построение локальной матрицы массы и правой части
+void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<double>& b) {
+
+	double detD = det(finitElement);
+
+	double coefB = abs(detD) / 120, sumR;
+
+	double coef = /*gamma(finitElement.formulaNumber) * */coefB;
+
+	vector<double> Fvalue;
+
+	Fvalue.resize(3);
+
+	for (int i = 0; i < 3; i++) {
+		Fvalue[i] = F(finitElement.nodes[i], finitElement.formulaNumber);
+		b[i] = 0;
+	}
+
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+
+			sumR = (i == j) ? 6 * finitElement.nodes[i].r + 2 * finitElement.nodes[(i + 1) % 3].r + 2 * finitElement.nodes[(i + 2) % 3].r :
+				2 * finitElement.nodes[i].r + 2 * finitElement.nodes[j].r + finitElement.nodes[3 - i - j].r;
+
+			M[i][j] = sumR * coef;
+
+			b[i] += Fvalue[j] * sumR * coefB;
+		}
+	}
+
+}
+
+void CalcGlobalB(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
+	for (int i = 0; i < grid.finitElements.size(); i++) {
+
+		MMatrix(grid.finitElements[i], denseMatrix.M, denseMatrix.b);
+
+		for (int k = 0; k < 3; k++) {
+			crsMatrix.F[grid.finitElements[i].nodes[k].globalNumber] += denseMatrix.b[k];
+		}
+	}
+}
+
 struct TimeLayer {
 	double deltaT, deltaT1, deltaT0;
 	int layerCount;
@@ -583,7 +626,7 @@ struct TimeLayer {
 	vector<vector<double>> f;
 	vector<double> t;
 
-	TimeLayer(Grid& grid, double startTime, double stopTime, int _layerCount) {
+	TimeLayer(Grid& grid, CRSMatrix& matrix, DenseMatrix& denseMatrix, double startTime, double stopTime, int _layerCount) {
 
 		int size = grid.nodes.size();
 		q.resize(3);
@@ -601,18 +644,27 @@ struct TimeLayer {
 			t[i] = deltaT * (i + 1);
 		}
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 2; i++) {
 			q[i].resize(size);
 			f[i].resize(size);
 
 			for (int j = 0; j < size; j++) {
 				grid.nodes[j].t = t[i];
 				q[i][j] = u1(grid.nodes[j], 0);
-				f[i][j] = F(grid.nodes[j], 0);
 			}
 
-			
+			for (int j = 0; j < grid.finitElements.size(); j++) {
+				for (int k = 0; k < 3; k++) {
+					grid.finitElements[j].nodes[k].t = t[i];
+				}
+			}
+
+			CalcGlobalB(grid, matrix, denseMatrix);
+
+			f[i] = matrix.F;
 		}
+		q[2].resize(size);
+		f[2].resize(size);
 	}
 	TimeLayer() = default;
 };
@@ -686,38 +738,6 @@ void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 
 	G[2][2] = (coef1 * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) +
 					coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
-
-}
-
-// Построение локальной матрицы массы и правой части
-void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<double>& b) {
-
-	double detD = det(finitElement);
-
-	double coefB = abs(detD) / 120, sumR;
-
-	double coef = /*gamma(finitElement.formulaNumber) * */coefB;
-
-	vector<double> Fvalue;
-
-	Fvalue.resize(3);
-
-	for (int i = 0; i < 3; i++) {
-		Fvalue[i] = F(finitElement.nodes[i], finitElement.formulaNumber);
-		b[i] = 0;
-	}
-
-	for (int i = 0; i < 3; i++) {
-		for (int j = 0; j < 3; j++) {
-
-			sumR = (i == j) ? 6 * finitElement.nodes[i].r + 2 * finitElement.nodes[(i + 1) % 3].r + 2 * finitElement.nodes[(i + 2) % 3].r :
-				2 * finitElement.nodes[i].r + 2 * finitElement.nodes[j].r + finitElement.nodes[3 - i - j].r;
-
-			M[i][j] = sumR * coef;
-
-			b[i] += Fvalue[j] * sumR * coefB;
-		}
-	}
 
 }
 
@@ -1125,17 +1145,6 @@ void CalcD(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G,
 
 }
 
-void CalcGlobalB(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
-	for (int i = 0; i < grid.finitElements.size(); i++) {
-
-		MMatrix(grid.finitElements[i], denseMatrix.M, denseMatrix.b);
-
-		for (int k = 0; k < 3; k++) {
-			crsMatrix.F[grid.finitElements[i].nodes[k].globalNumber] += denseMatrix.b[k];
-		}
-	}
-}
-
 void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G, DenseMatrix& denseMatrix, TimeLayer& timeLayer) {
 
 	double coefXi = xi(0);
@@ -1160,13 +1169,21 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 		for (int j = 0; j < grid.nodes.size(); j++) {
 			grid.nodes[j].t = timeLayer.t[i];
 		}
+		for (int j = 0; j < grid.finitElements.size(); j++) {
+			for (int k = 0; k < 3; k++) {
+				grid.finitElements[j].nodes[k].t = timeLayer.t[i];
+			}
+		}
 
 		timeLayer.deltaT = timeLayer.t[i] - timeLayer.t[i - 2];
 		timeLayer.deltaT1 = timeLayer.t[i - 1] - timeLayer.t[i - 2];
 		timeLayer.deltaT0 = timeLayer.t[i] - timeLayer.t[i - 1];
-		
+
 		CalcA(crsMatrix, Mx, MSigma, G, timeLayer);
 		CalcGlobalB(grid, crsMatrix, denseMatrix);
+
+		timeLayer.f[2].assign(crsMatrix.F.begin(), crsMatrix.F.end());
+
 		CalcD(crsMatrix, Mx, MSigma, G, timeLayer);
 
 		CalcboundCond1(grid, crsMatrix);
@@ -1178,23 +1195,24 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 		cout << i << "\t" << "временой слой" << endl;
 		Output(crsMatrix);
 
-		timeLayer.q[0].swap(timeLayer.q[1]);
-		timeLayer.q[1].swap(timeLayer.q[2]);
 		timeLayer.q[2].swap(crsMatrix.x);
+ 		timeLayer.q[0].swap(timeLayer.q[1]);
+		timeLayer.q[1].swap(timeLayer.q[2]);
+		
 		timeLayer.f[0].swap(timeLayer.f[1]);
 		timeLayer.f[1].swap(timeLayer.f[2]);
-		timeLayer.f[2].swap(crsMatrix.F);
 
-		crsMatrix.di.resize(crsMatrix.di.size());
-		crsMatrix.ggl.resize(crsMatrix.ggl.size());
-		crsMatrix.ggu.resize(crsMatrix.ggl.size());
-		crsMatrix.x.resize(crsMatrix.di.size());
-		crsMatrix.temp.resize(crsMatrix.di.size());
-		crsMatrix.temp0.resize(crsMatrix.di.size());
-		crsMatrix.F.resize(crsMatrix.di.size());
-		crsMatrix.r.resize(crsMatrix.di.size());
-		crsMatrix.p.resize(crsMatrix.di.size());
-		crsMatrix.z.resize(crsMatrix.di.size());
+		crsMatrix.ggl.assign(crsMatrix.ggl.size(), 0);
+		crsMatrix.ggu.assign(crsMatrix.ggl.size(), 0);
+		crsMatrix.x.assign(crsMatrix.di.size(), 0);
+		crsMatrix.temp.assign(crsMatrix.di.size(), 0);
+		crsMatrix.temp0.assign(crsMatrix.di.size(), 0);
+		crsMatrix.r.assign(crsMatrix.di.size(), 0);
+		crsMatrix.p.assign(crsMatrix.di.size(), 0);
+		crsMatrix.z.assign(crsMatrix.di.size(), 0);
+		crsMatrix.F.assign(crsMatrix.di.size(), 0);
+		crsMatrix.di.assign(crsMatrix.di.size(), 0);
+
 
 	}
 
@@ -1204,18 +1222,19 @@ int main()
 {
 	Grid grid;
 	DenseMatrix denseMatrix = DenseMatrix();
-	CRSMatrix crsMatrix, M, Mx, Msigma, G;
+	CRSMatrix crsMatrix, layerMatrix, M, Mx, Msigma, G;
 	TimeLayer timeLayer;
 	
 	Input(grid);
 
 	Portrait(grid, crsMatrix);
+	Portrait(grid, layerMatrix);
 	Portrait(grid, Mx);
 	Portrait(grid, M);
 	Portrait(grid, Msigma);
 	Portrait(grid, G);
 
-	timeLayer = TimeLayer(grid, 0.0, 10.0, 10);
+	timeLayer = TimeLayer(grid, layerMatrix, denseMatrix, 0.0, 10.0, 10);
 
 	SimpleIteration(grid, crsMatrix, M, Mx, Msigma, G, denseMatrix, timeLayer);
 }
