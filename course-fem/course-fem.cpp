@@ -109,7 +109,7 @@ struct Grid {
 double F(Node& node, int formulaNumber) {
 
 	//return 3 * (node.r) ;
-	return 1;
+	return node.r + 2 * node.t * node.r + 5;
 	//return -6 * node.r * node.phi + node.r * node.r * node.phi;
 	//return (formulaNumber == 0) ? -20 : 0;
 
@@ -132,7 +132,7 @@ double gamma(int formulaNumber) {
 double xi(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 0;
+	return 1;
 
 }
 
@@ -164,7 +164,7 @@ double uBeta(Node& node) {
 
 double u1(Node& node, int formulaNumber) {
 
-	return node.t;
+	return node.t * node.t * node.r + 5 * node.t;
 
 }
 
@@ -582,7 +582,7 @@ void MMatrix(FinitElement& finitElement, vector<vector<double>>& M, vector<doubl
 
 	double coefB = abs(detD) / 120, sumR;
 
-	double coef = /*gamma(finitElement.formulaNumber) * */coefB;
+	double coef = coefB;
 
 	vector<double> Fvalue;
 
@@ -662,6 +662,18 @@ struct TimeLayer {
 			CalcGlobalB(grid, matrix, denseMatrix);
 
 			f[i] = matrix.F;
+
+			matrix.ggl.assign(matrix.ggl.size(), 0);
+			matrix.ggu.assign(matrix.ggl.size(), 0);
+			matrix.x.assign(matrix.di.size(), 0);
+			matrix.temp.assign(matrix.di.size(), 0);
+			matrix.temp0.assign(matrix.di.size(), 0);
+			matrix.r.assign(matrix.di.size(), 0);
+			matrix.p.assign(matrix.di.size(), 0);
+			matrix.z.assign(matrix.di.size(), 0);
+			matrix.F.assign(matrix.di.size(), 0);
+			matrix.di.assign(matrix.di.size(), 0);
+
 		}
 		q[2].resize(size);
 		f[2].resize(size);
@@ -1103,12 +1115,12 @@ double getValue(FinitElement& finitElement, CRSMatrix& crsMatrix, double r, doub
 void CalcA(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G, TimeLayer& timeLayer) {
 
 	for (int i = 0; i < crsMatrix.d.size(); i++) {
-		crsMatrix.di[i] = 2 * Mx.di[i] / (timeLayer.deltaT * timeLayer.deltaT0) +  MSigma.di[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + 0.5 * G.di[i];
+		crsMatrix.di[i] = 2 * Mx.di[i] / (timeLayer.deltaT * timeLayer.deltaT0) +  MSigma.di[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + G.di[i] / 2;
 	}
 
 	for (int i = 0; i < crsMatrix.ggl.size(); i++) {
-		crsMatrix.ggl[i] = 2 * Mx.ggl[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggl[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + 0.5 * G.ggl[i];
-		crsMatrix.ggu[i] = 2 * Mx.ggu[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggu[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + 0.5 * G.ggu[i];
+		crsMatrix.ggl[i] = 2 * Mx.ggl[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggl[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + G.ggl[i] / 2;
+		crsMatrix.ggu[i] = 2 * Mx.ggu[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggu[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + G.ggu[i] / 2;
 	}
 
 }
