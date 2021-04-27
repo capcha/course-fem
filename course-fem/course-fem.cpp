@@ -109,7 +109,7 @@ struct Grid {
 double F(Node& node, int formulaNumber) {
 
 	//return 3 * (node.r) ;
-	return node.r + 2 * node.t * node.r + 5;
+	return 2 * node.r + 2 * node.t * node.r;
 	//return -6 * node.r * node.phi + node.r * node.r * node.phi;
 	//return (formulaNumber == 0) ? -20 : 0;
 
@@ -164,7 +164,7 @@ double uBeta(Node& node) {
 
 double u1(Node& node, int formulaNumber) {
 
-	return node.t * node.t * node.r + 5 * node.t;
+	return node.t * node.t * node.r;
 
 }
 
@@ -1068,7 +1068,7 @@ void Output(CRSMatrix& crsmatrix) {
 	for (int i = 0; i < crsmatrix.x.size(); i++) {
 		fOut << fixed << scientific << setprecision(6) << crsmatrix.x[i] << endl;
 	}
-
+		
 	fOut.close();
 }
 
@@ -1115,12 +1115,12 @@ double getValue(FinitElement& finitElement, CRSMatrix& crsMatrix, double r, doub
 void CalcA(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G, TimeLayer& timeLayer) {
 
 	for (int i = 0; i < crsMatrix.d.size(); i++) {
-		crsMatrix.di[i] = 2 * Mx.di[i] / (timeLayer.deltaT * timeLayer.deltaT0) +  MSigma.di[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + G.di[i] / 2;
+		crsMatrix.di[i] = Mx.di[i] / (timeLayer.deltaT0 * timeLayer.deltaT0) + MSigma.di[i] / (timeLayer.deltaT0 * 2) + G.di[i] / 2;
 	}
 
 	for (int i = 0; i < crsMatrix.ggl.size(); i++) {
-		crsMatrix.ggl[i] = 2 * Mx.ggl[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggl[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + G.ggl[i] / 2;
-		crsMatrix.ggu[i] = 2 * Mx.ggu[i] / (timeLayer.deltaT * timeLayer.deltaT0) + MSigma.ggu[i] * timeLayer.deltaT1 / (timeLayer.deltaT * timeLayer.deltaT0) + G.ggu[i] / 2;
+		crsMatrix.ggl[i] = Mx.ggl[i] / (timeLayer.deltaT0 * timeLayer.deltaT0) + MSigma.ggl[i] / (timeLayer.deltaT0 * 2) + G.ggl[i] / 2;
+		crsMatrix.ggu[i] = Mx.ggu[i] / (timeLayer.deltaT0 * timeLayer.deltaT0) + MSigma.ggu[i] / (timeLayer.deltaT0 * 2) + G.ggu[i] / 2;
 	}
 
 }
@@ -1148,10 +1148,10 @@ void CalcD(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G,
 	for (int i = 0; i < crsMatrix.F.size(); i++) {
 		crsMatrix.F[i] = crsMatrix.F[i] / 2 
 							+ timeLayer.f[0][i] / 2 
-							+ MXqJ_1[i] * 2 / (timeLayer.deltaT1 * timeLayer.deltaT0) 
-							- MXqJ_2[i] * 2 / (timeLayer.deltaT * timeLayer.deltaT1)
-							+ MSqJ_2[i] * timeLayer.deltaT0 / (timeLayer.deltaT * timeLayer.deltaT1) 
-							- MSqJ_1[i] * (timeLayer.deltaT0 - timeLayer.deltaT1) / (timeLayer.deltaT1 * timeLayer.deltaT0)
+							+ MXqJ_1[i] * 2 / (timeLayer.deltaT0 * timeLayer.deltaT0) 
+							- MXqJ_2[i] * 1 / (timeLayer.deltaT0 * timeLayer.deltaT0)
+							+ MSqJ_2[i] / (timeLayer.deltaT0 * 2)
+							//- MSqJ_1[i] * (timeLayer.deltaT0) / (timeLayer.deltaT1 * timeLayer.deltaT0)
 							- GqJ_2[i] / 2;
 	}
 
@@ -1196,7 +1196,7 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 
 		timeLayer.f[2].assign(crsMatrix.F.begin(), crsMatrix.F.end());
 
-		CalcD(crsMatrix, Mx, MSigma, G, timeLayer);
+ 		CalcD(crsMatrix, Mx, MSigma, G, timeLayer);
 
 		CalcboundCond1(grid, crsMatrix);
 
