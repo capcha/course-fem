@@ -109,7 +109,7 @@ struct Grid {
 double F(Node& node, int formulaNumber) {
 
 	//return 3 * (node.r) ;
-	return 2 * node.r + 2 * node.t * node.r;
+	return 18 * node.t  + 15 * node.t * node.t;
 	//return -6 * node.r * node.phi + node.r * node.r * node.phi;
 	//return (formulaNumber == 0) ? -20 : 0;
 
@@ -132,14 +132,14 @@ double gamma(int formulaNumber) {
 double xi(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 1;
+	return 3;
 
 }
 
 double sigma(int formulaNumber) {
 
 	//return (formulaNumber == 0) ? 5 : 0;
-	return 1;
+	return 5;
 
 }
 
@@ -164,7 +164,7 @@ double uBeta(Node& node) {
 
 double u1(Node& node, int formulaNumber) {
 
-	return node.t * node.t * node.r;
+	return node.t * node.t * node.t;
 
 }
 
@@ -618,6 +618,20 @@ void CalcGlobalB(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix) {
 	}
 }
 
+void Output(CRSMatrix& crsmatrix, double time) {
+	ofstream fOut("output.txt", ios_base::app);
+
+	fOut << time << "-----------" << endl;
+
+	for (int i = 0; i < crsmatrix.x.size(); i++) {
+		fOut << fixed << scientific << setprecision(6) << crsmatrix.x[i] << endl;
+	}
+
+	fOut << fixed << scientific << "u - uh\t" << setprecision(6) << crsmatrix.x[4] - crsmatrix.x[3] << endl;
+
+	fOut.close();
+}
+
 struct TimeLayer {
 	double deltaT, deltaT1, deltaT0;
 	int layerCount;
@@ -651,6 +665,7 @@ struct TimeLayer {
 			for (int j = 0; j < size; j++) {
 				grid.nodes[j].t = t[i];
 				q[i][j] = u1(grid.nodes[j], 0);
+				matrix.x[j] = q[i][j];
 			}
 
 			for (int j = 0; j < grid.finitElements.size(); j++) {
@@ -662,6 +677,8 @@ struct TimeLayer {
 			CalcGlobalB(grid, matrix, denseMatrix);
 
 			f[i] = matrix.F;
+		
+			Output(matrix, grid.nodes[0].t);
 
 			matrix.ggl.assign(matrix.ggl.size(), 0);
 			matrix.ggu.assign(matrix.ggl.size(), 0);
@@ -677,6 +694,7 @@ struct TimeLayer {
 		}
 		q[2].resize(size);
 		f[2].resize(size);
+
 	}
 	TimeLayer() = default;
 };
@@ -751,19 +769,6 @@ void GMatrix(FinitElement& finitElement, vector<vector<double>>& G) {
 	G[2][2] = (coef1 * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) * (finitElement.nodes[0].phi - finitElement.nodes[1].phi) +
 					coef2 * (finitElement.nodes[1].r - finitElement.nodes[0].r) * (finitElement.nodes[1].r - finitElement.nodes[0].r)) / (detD * detD);
 
-}
-
-// Построение локальных матриц
-void LocalMatrix(FinitElement& finitElement, DenseMatrix& denseMatrix, TimeLayer& timeLayer) {
-
-	GMatrix(finitElement, denseMatrix.G);
-	MMatrix(finitElement, denseMatrix.M, denseMatrix.b);
-
-	for (int j = 0; j < 3; j++) {
-		for (int k = 0; k < 3; k++) {
-			denseMatrix.A[j][k] = denseMatrix.M[j][k] + denseMatrix.G[j][k];
-		}
-	}
 }
 
 void CalcGlobalG(Grid& grid, CRSMatrix& G, DenseMatrix& denseMatrix) {
@@ -850,57 +855,6 @@ void CalcGlobalM(Grid& grid, CRSMatrix& M, DenseMatrix& denseMatrix) {
 
 		}
 	}
-}
-
-void GlobalMatrix(Grid& grid, CRSMatrix& crsMatrix, DenseMatrix& denseMatrix, TimeLayer& timeLayer) {
-
-	int temp;
-
-	for (int i = 0; i < grid.finitElements.size(); i++) {
-
-		LocalMatrix(grid.finitElements[i], denseMatrix, timeLayer);
-
-		for (int k = 0; k < 3; k++) {
-
-			int begI = grid.finitElements[i].nodes[k].globalNumber;
-
-			for (int j = k + 1; j < 3; j++) {
-
-				int endI = grid.finitElements[i].nodes[j].globalNumber;
-
-				if (begI < endI) {
-
-					temp = crsMatrix.ig[endI];
-					while (crsMatrix.jg[temp++] - begI);
-					temp--;
-					crsMatrix.ggl[temp] += denseMatrix.A[k][j];
-					crsMatrix.ggu[temp] += denseMatrix.A[j][k];
-
-				}
-
-				else {
-
-					temp = crsMatrix.ig[begI];
-					while (crsMatrix.jg[temp++] - endI);
-					temp--;
-					crsMatrix.ggl[temp] += denseMatrix.A[k][j];
-					crsMatrix.ggu[temp] += denseMatrix.A[j][k];
-
-				}
-
-			}
-
-			crsMatrix.di[begI] += denseMatrix.A[k][k];
-
-		}
-
-		for (int k = 0; k < 3; k++) {
-
-			crsMatrix.F[grid.finitElements[i].nodes[k].globalNumber] += denseMatrix.b[k];
-
-		}
-	}
-
 }
 
 double mesG(Node& node1, Node& node2) {
@@ -1062,16 +1016,6 @@ void CalcboundCond1(Grid& grid, CRSMatrix& crsMatrix) {
 	}
 }
 
-void Output(CRSMatrix& crsmatrix) {
-	ofstream fOut("output.txt");
-
-	for (int i = 0; i < crsmatrix.x.size(); i++) {
-		fOut << fixed << scientific << setprecision(6) << crsmatrix.x[i] << endl;
-	}
-		
-	fOut.close();
-}
-
 void procLU(CRSMatrix& crsMatrix) {
 
 	for (int i = 0; i < crsMatrix.ggl.size(); i++) {
@@ -1151,7 +1095,6 @@ void CalcD(CRSMatrix& crsMatrix, CRSMatrix& Mx, CRSMatrix& MSigma, CRSMatrix& G,
 							+ MXqJ_1[i] * 2 / (timeLayer.deltaT0 * timeLayer.deltaT0) 
 							- MXqJ_2[i] * 1 / (timeLayer.deltaT0 * timeLayer.deltaT0)
 							+ MSqJ_2[i] / (timeLayer.deltaT0 * 2)
-							//- MSqJ_1[i] * (timeLayer.deltaT0) / (timeLayer.deltaT1 * timeLayer.deltaT0)
 							- GqJ_2[i] / 2;
 	}
 
@@ -1198,15 +1141,15 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 
  		CalcD(crsMatrix, Mx, MSigma, G, timeLayer);
 
+		//CalcboundCond2(grid, crsMatrix, denseMatrix);
 		CalcboundCond1(grid, crsMatrix);
 
 		procLU(crsMatrix);
 
 		LOS_LU(crsMatrix);
 
-		cout << i << "\t" << "временой слой" << endl;
-		Output(crsMatrix);
-
+		Output(crsMatrix, grid.nodes[0].t);
+	
 		timeLayer.q[2].swap(crsMatrix.x);
  		timeLayer.q[0].swap(timeLayer.q[1]);
 		timeLayer.q[1].swap(timeLayer.q[2]);
@@ -1224,7 +1167,6 @@ void SimpleIteration(Grid& grid, CRSMatrix& crsMatrix, CRSMatrix& M, CRSMatrix& 
 		crsMatrix.z.assign(crsMatrix.di.size(), 0);
 		crsMatrix.F.assign(crsMatrix.di.size(), 0);
 		crsMatrix.di.assign(crsMatrix.di.size(), 0);
-
 
 	}
 
@@ -1246,7 +1188,8 @@ int main()
 	Portrait(grid, Msigma);
 	Portrait(grid, G);
 
-	timeLayer = TimeLayer(grid, layerMatrix, denseMatrix, 0.0, 10.0, 10);
+	timeLayer = TimeLayer(grid, layerMatrix, denseMatrix, 0.0, 5.0, 10);
 
 	SimpleIteration(grid, crsMatrix, M, Mx, Msigma, G, denseMatrix, timeLayer);
+	
 }
